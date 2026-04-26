@@ -108,14 +108,29 @@ class _DynamicReportScreenState extends State<DynamicReportScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: ElevatedButton(
+                    child:
+                    ElevatedButton(
                       onPressed: () {
-                        // اعتماد المسودة وإغلاق الشاشة
-                        for (var f in widget.strategy.filterControllers) {
-                          f.commit();
+                        // 1. تشغيل دالة التحقق على جميع الفلاتر أولاً
+                        bool isValid = true;
+                        for (var controller in widget.strategy.filterControllers) {
+                          // نستدعي validate()، وإذا أرجعت false لأي حقل، نجعل isValid = false
+                          if (!controller.validate()) {
+                            isValid = false;
+                          }
                         }
-                        Navigator.pop(context);
-                        _loadData(); // جلب البيانات تلقائياً بعد الفلترة
+
+                        // 2. إذا كانت جميع الحقول الإجبارية ممتلئة بشكل صحيح
+                        if (isValid) {
+                          for (var controller in widget.strategy.filterControllers) {
+                            controller.commit(); // نعتمد القيم
+                          }
+                          Navigator.pop(context); // نغلق الـ Sheet
+                          _loadData(); // نجلب بيانات التقرير
+                        } else {
+                          // يمكنك إضافة اهتزاز (Haptic) أو رسالة Snackbar هنا مستقبلاً
+                          print("⚠️ هناك حقول إجبارية ناقصة!");
+                        }
                       },
                       child: const Text("تطبيق الفلاتر وبحث"),
                     ),

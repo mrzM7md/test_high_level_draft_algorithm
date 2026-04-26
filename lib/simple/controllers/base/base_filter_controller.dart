@@ -6,18 +6,22 @@ abstract class BaseFilterController<T> extends ChangeNotifier {
   T? tempValue;
   final T? defaultValue;
 
-  // جعلنا الاعتمادية تقبل BaseFilterController لنتمكن من تتبع التغيير الحقيقي
   final List<BaseFilterController>? dependencies;
   final bool Function()? isVisible;
 
-  // ذاكرة لتتبع القيم السابقة للآباء لمنع "النيران الصديقة" عند الـ Commit
+  final bool isRequired;
+  String? validationError;
+
   List<dynamic>? _lastDependencyValues;
 
+  // 🔥 الحل الجذري هنا: نستقبل isRequired كقيمة قد تكون null (بسبب أخطاء الوراثة)
+  // ونقوم بإنقاذها وتحويلها إلى false في قائمة التهيئة (Initializer List)
   BaseFilterController({
     this.defaultValue,
     this.dependencies,
     this.isVisible,
-  }) {
+    bool? isRequired, // 1. نجعلها تقبل Null مؤقتاً
+  }) : isRequired = isRequired ?? false { // 2. نؤمنها هنا بأمان تام!
     appliedValue = defaultValue;
     tempValue = defaultValue;
 
@@ -34,37 +38,64 @@ abstract class BaseFilterController<T> extends ChangeNotifier {
 
     bool hasActualChange = false;
     for (int i = 0; i < dependencies!.length; i++) {
-      // نتحقق: هل تغيرت القيمة في المسودة فعلاً؟
       if (dependencies![i].tempValue != _lastDependencyValues![i]) {
         hasActualChange = true;
         _lastDependencyValues![i] = dependencies![i].tempValue;
       }
     }
 
-    // إذا لم تتغير قيمة المسودة (مثلاً عند الـ commit)، نتجاهل التحديث
     if (!hasActualChange) return;
 
-    // إبلاغ الابن أن الأب تغير (في مستوى المسودة فقط)
     onParentValueChanged();
     notifyListeners();
   }
 
-  // دالة مخصصة للآبناء للتعامل مع تغير الأب
   void onParentValueChanged() {
     if (isVisible != null && !isVisible!()) {
       tempValue = null;
-      // 🔥 ملاحظة: لا نمسح الـ appliedValue هنا أبداً!
     }
   }
 
-  void resetToDefault() { tempValue = defaultValue; notifyListeners(); }
-  void clear() { tempValue = null; notifyListeners(); }
-  void updateTemp(T? value) { tempValue = value; notifyListeners(); }
+  bool validate() {
+    if (isVisible != null && !isVisible!()) {
+      validationError = null;
+      return true;
+    }
+
+    if (isRequired && tempValue == null) {
+      validationError = "هذا الحقل مطلوب ولا يمكن تركه فارغاً";
+      notifyListeners();
+      return false;
+    }
+
+    validationError = null;
+    notifyListeners();
+    return true;
+  }
+
+  void resetToDefault() {
+    tempValue = defaultValue;
+    validationError = null;
+    notifyListeners();
+  }
+
+  void clear() {
+    tempValue = null;
+    validationError = null;
+    notifyListeners();
+  }
+
+  void updateTemp(T? value) {
+    tempValue = value;
+    validationError = null;
+    notifyListeners();
+  }
+
   void commit() { appliedValue = tempValue; notifyListeners(); }
 
-  // عند التراجع: نستعيد القيمة المعتمدة (التي لم نمسحها)
   void discard() {
     tempValue = appliedValue;
+    validationError = null;
     notifyListeners();
   }
 
@@ -77,6 +108,7 @@ abstract class BaseFilterController<T> extends ChangeNotifier {
       },
     );
   }
+
   Widget buildFilterWidget(BuildContext context);
 }
 

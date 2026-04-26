@@ -27,6 +27,7 @@ class ReportTwoStrategy implements ReportStrategy<String> {
     _mainCategoryFilter = GenericDropdownController<CategoryModel>(
       labelText: "التصنيف الرئيسي",
       fetchFunction: () => repo.fetchCategories(),
+      isRequired: true,
       itemLabelBuilder: (category) => category.name,
     );
 
