@@ -1,25 +1,26 @@
 // --- generic_dropdown_controller.dart ---
 import 'package:flutter/material.dart';
-import '../base/base_data_filter_controller.dart';
+import '../../base/base_data_filter_controller.dart';
 
 class GenericDropdownController<T> extends BaseDataFilterController<T> {
   final String labelText;
-  // 1. مفوض جلب البيانات: دالة تخبر الكنترولر من أين يأتي بالبيانات
   final Future<List<T>> Function() fetchFunction;
-  // 2. مفوض العرض: دالة تخبر الكنترولر كيف يقرأ النص من الـ Model
   final String Function(T item) itemLabelBuilder;
 
   GenericDropdownController({
     required this.labelText,
     required this.fetchFunction,
     required this.itemLabelBuilder,
+    super.defaultValue,
+    super.dependencies,
+    super.isVisible,
   });
 
   @override
   Future<List<T>> fetchDataFromServer() => fetchFunction();
 
   @override
-  Widget buildWidget(BuildContext context) {
+  Widget buildFilterWidget(BuildContext context) {
     ensureDataLoaded();
 
     return ListenableBuilder(
@@ -27,7 +28,7 @@ class GenericDropdownController<T> extends BaseDataFilterController<T> {
       builder: (context, _) {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: DropdownButtonFormField<T>( // النوع T ديناميكي
+          child: DropdownButtonFormField<T>(
             decoration: InputDecoration(
               labelText: labelText,
               border: const OutlineInputBorder(),
@@ -49,10 +50,9 @@ class GenericDropdownController<T> extends BaseDataFilterController<T> {
               ),
             ),
             value: items.contains(tempValue) ? tempValue : null,
-            // استخدام المفوض لقراءة النص
             items: items.map((item) => DropdownMenuItem(
               value: item,
-              child: Text(itemLabelBuilder(item)), 
+              child: Text(itemLabelBuilder(item)),
             )).toList(),
             onChanged: (val) => updateTemp(val),
           ),

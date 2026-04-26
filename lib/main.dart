@@ -1,3 +1,4 @@
+// --- main.dart ---
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/reports/report_one_strategy.dart';
@@ -10,7 +11,6 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      // دعم اللغة العربية (اختياري لكن مفضل)
       builder: (context, child) => Directionality(textDirection: TextDirection.rtl, child: child!),
       home: const MainMenuScreen(),
     );
@@ -19,7 +19,13 @@ class MyApp extends StatelessWidget {
 
 // شاشة اختيار التقارير
 class MainMenuScreen extends StatelessWidget {
+  // 🔥 السحر هنا: قمنا بإنشاء "نسخة واحدة ثابتة" (Singleton Cache) من كل تقرير
+  // هذه المتغيرات ستبقى حية في الذاكرة ومحتفظة بكل الفلاتر ما دام التطبيق يعمل
+  static final ReportOneStrategy _cachedReportOne = ReportOneStrategy();
+  static final ReportTwoStrategy _cachedReportTwo = ReportTwoStrategy();
+
   const MainMenuScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -30,14 +36,16 @@ class MainMenuScreen extends StatelessWidget {
           children: [
             ElevatedButton(
               onPressed: () => Navigator.push(context, MaterialPageRoute(
-                builder: (_) => DynamicReportScreen(strategy: ReportOneStrategy()),
+                // 🔥 التعديل هنا: نمرر النسخة المحفوظة في الذاكرة بدلاً من ()ReportOneStrategy
+                builder: (_) => DynamicReportScreen(strategy: _cachedReportOne),
               )),
               child: const Text("فتح التقرير الأول"),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () => Navigator.push(context, MaterialPageRoute(
-                builder: (_) => DynamicReportScreen(strategy: ReportTwoStrategy()),
+                // 🔥 التعديل هنا: نمرر النسخة المحفوظة للتقرير الثاني
+                builder: (_) => DynamicReportScreen(strategy: _cachedReportTwo),
               )),
               child: const Text("فتح التقرير الثاني"),
             ),
@@ -61,6 +69,16 @@ class DynamicReportScreen extends StatefulWidget {
 
 class _DynamicReportScreenState extends State<DynamicReportScreen> {
   List<dynamic> _data = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // لمسة إضافية لراحة المستخدم: إذا كان هناك بيانات مسودة معتمدة مسبقاً، اجلب التقرير تلقائياً عند الدخول
+    bool hasAppliedFilters = widget.strategy.filterControllers.any((f) => f.appliedValue != null);
+    if (hasAppliedFilters) {
+      _loadData();
+    }
+  }
 
   void _loadData() async {
     final result = await widget.strategy.fetchReportData();
@@ -106,11 +124,9 @@ class _DynamicReportScreenState extends State<DynamicReportScreen> {
                   Expanded(
                     child: TextButton.icon(
                       onPressed: () {
-                        // السحر هنا: نمر على كل كنترولر في الاستراتيجية ونصفره
                         for (var controller in widget.strategy.filterControllers) {
                           controller.resetToDefault();
                         }
-                        // اختياري: يمكنك إغلاق الشاشة أو تحديث البيانات فوراً
                       },
                       icon: const Icon(Icons.restore, color: Colors.orange, size: 20),
                       label: const Text("إعادة تعيين الكل", style: TextStyle(color: Colors.orange)),

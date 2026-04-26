@@ -1,14 +1,14 @@
-// --- report_one_strategy.dart ---
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/generic_date_controller.dart'; // استيراد الحقل الجديد
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/generic_date_range_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/generic_dropdown_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/generic_dropdown_range_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/generic_search_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_date_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_date_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/data_range.dart';
 import 'package:test_high_level_draft_algorithm/simple/models/category_model.dart';
 import 'package:test_high_level_draft_algorithm/simple/models/customer_model.dart';
-import 'package:test_high_level_draft_algorithm/simple/models/data_range.dart';
 import 'package:test_high_level_draft_algorithm/simple/repos/api_repository.dart';
 
 class ReportOneStrategy implements ReportStrategy<String> {
@@ -17,21 +17,20 @@ class ReportOneStrategy implements ReportStrategy<String> {
 
   final ApiRepository repo = ApiRepository();
 
-  // 1. الفلتر الأول: مدى تاريخ ديناميكي (من وإلى)
+  // 1. فلاتر التاريخ
   late final GenericDateRangeController _dateRangeFilter;
-
-  // 2. الفلتر الثاني: تاريخ منفرد ديناميكي (إضافة جديدة)
   late final GenericDateController _singleDateFilter;
 
-  // 3. الفلتر الثالث: قائمة منسدلة ديناميكية
+  // 2. فلاتر التصنيفات
   late final GenericDropdownController _categoryFilter;
-
   late final GenericDropdownRangeController<CategoryModel> _categoryRangeFilter;
 
+  // 3. فلاتر العملاء (مفرد ونطاق)
+  late final GenericSearchController<CustomerModel> _customerFilter; // الحقل الجديد
   late final GenericSearchRangeController<CustomerModel> _customerRangeFilter;
 
   ReportOneStrategy() {
-    // بناء فلتر مدى التاريخ
+    // بناء فلاتر التاريخ
     _dateRangeFilter = GenericDateRangeController(
       labelText: "فترة الفواتير",
       fromLabelText: "من تاريخ",
@@ -42,14 +41,13 @@ class ReportOneStrategy implements ReportStrategy<String> {
       ),
     );
 
-    // بناء فلتر التاريخ المنفرد (مثلاً لتحديد موعد استحقاق معين)
     _singleDateFilter = GenericDateController(
       labelText: "تاريخ الاستحقاق",
       hintText: "اضغط لتحديد التاريخ...",
-      defaultValue: DateTime.now(), // القيمة الافتراضية هي اليوم
+      defaultValue: DateTime.now(),
     );
 
-    // بناء فلتر التصنيفات
+    // بناء فلاتر التصنيفات
     _categoryFilter = GenericDropdownController(
       labelText: "اختر التصنيف",
       fetchFunction: () => repo.fetchCategories(),
@@ -64,6 +62,29 @@ class ReportOneStrategy implements ReportStrategy<String> {
       itemLabelBuilder: (cat) => cat.name,
     );
 
+    // بناء فلتر البحث المفرد للعملاء
+    _customerFilter = GenericSearchController<CustomerModel>(
+      labelText: "العميل (بحث مفرد)",
+      hintText: "اضغط للبحث عن عميل...",
+      initialFetchFunction: () => repo.fetchCustomers(),
+      searchFunction: (query) => repo.searchCustomers(query),
+      selectedItemLabel: (customer) => customer.name,
+      itemBuilder: (customer, isSelected) {
+        return ListTile(
+          selected: isSelected,
+          selectedTileColor: Colors.blue.withOpacity(0.1),
+          title: Text(customer.name, style: TextStyle(fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold)),
+          subtitle: Text(customer.phone),
+          leading: CircleAvatar(
+            backgroundColor: isSelected ? Colors.blue : Colors.grey.shade300,
+            child: Icon(Icons.person, color: isSelected ? Colors.white : Colors.black54),
+          ),
+          trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
+        );
+      },
+    );
+
+    // بناء فلتر نطاق البحث للعملاء
     _customerRangeFilter = GenericSearchRangeController<CustomerModel>(
       labelText: "نطاق العملاء (أونلاين)",
       fromLabelText: "من عميل",
@@ -72,7 +93,6 @@ class ReportOneStrategy implements ReportStrategy<String> {
       initialFetchFunction: () => repo.fetchCustomers(),
       searchFunction: (query) => repo.searchCustomers(query),
       selectedItemLabel: (customer) => customer.name,
-      // التصميم الديناميكي لعنصر العميل داخل قائمة البحث
       itemBuilder: (customer, isSelected) {
         return ListTile(
           selected: isSelected,
@@ -95,6 +115,7 @@ class ReportOneStrategy implements ReportStrategy<String> {
     _singleDateFilter,
     _categoryFilter,
     _categoryRangeFilter,
+    _customerFilter, // تم وضعه فوق حقل النطاق
     _customerRangeFilter,
   ];
 
@@ -104,9 +125,9 @@ class ReportOneStrategy implements ReportStrategy<String> {
     final singleDate = _singleDateFilter.appliedValue;
     final cat = _categoryFilter.appliedValue;
     final catRange = _categoryRangeFilter.appliedValue;
+    final cust = _customerFilter.appliedValue; // القيمة المعتمدة للبحث المفرد
     final cstRange = _customerRangeFilter.appliedValue;
 
-    // محاكاة معالجة البيانات بناءً على الفلاتر الثلاثة
     await Future.delayed(const Duration(milliseconds: 500));
 
     return [
@@ -115,8 +136,9 @@ class ReportOneStrategy implements ReportStrategy<String> {
       "تاريخ الاستحقاق المختار: ${singleDate ?? 'لم يحدد'}",
       "من تصنيف: ${catRange?.fromValue?.name}",
       "إلى تصنيف: ${catRange?.toValue?.name}",
-      "من حقل: ${cstRange?.fromValue?.name}",
-      "إلى حقل: ${cstRange?.toValue?.name}",
+      "العميل المحدد: ${cust?.name ?? 'الكل'}",
+      "من عميل (نطاق): ${cstRange?.fromValue?.name}",
+      "إلى عميل (نطاق): ${cstRange?.toValue?.name}",
     ];
   }
 }

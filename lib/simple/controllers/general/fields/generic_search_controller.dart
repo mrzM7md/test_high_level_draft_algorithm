@@ -1,19 +1,14 @@
 // --- generic_search_controller.dart ---
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/helpers/debouncer_helper.dart';
-import '../base/base_data_filter_controller.dart';
+import '../../base/base_data_filter_controller.dart';
 
 class GenericSearchController<T> extends BaseDataFilterController<T> {
   final String labelText;
   final String hintText;
-  
-  // 1. دالة جلب البيانات الافتراضية
   final Future<List<T>> Function() initialFetchFunction;
-  // 2. دالة البحث أونلاين
   final Future<List<T>> Function(String query) searchFunction;
-  // 3. مفوض بناء التصميم (يعطيك العنصر وحالة الاختيار، وتُرجع له التصميم!)
   final Widget Function(T item, bool isSelected) itemBuilder;
-  // 4. دالة عرض الاسم المختار في الحقل الرئيسي
   final String Function(T item) selectedItemLabel;
 
   List<T> searchResults = [];
@@ -27,10 +22,18 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
     required this.searchFunction,
     required this.itemBuilder,
     required this.selectedItemLabel,
+    super.defaultValue,
+    super.dependencies,
+    super.isVisible,
   });
 
   @override
   Future<List<T>> fetchDataFromServer() => initialFetchFunction();
+  @override
+  void onParentValueChanged() {
+    searchResults = []; // تصفير نتائج البحث
+    super.onParentValueChanged(); // سيقوم بمسح tempValue وجلب البيانات تلقائياً
+  }
 
   void onSearchQueryChanged(String query) {
     _debouncer.cancel();
@@ -56,7 +59,7 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
   }
 
   @override
-  Widget buildWidget(BuildContext context) {
+  Widget buildFilterWidget(BuildContext context) {
     ensureDataLoaded().then((_) {
       if (searchResults.isEmpty && items.isNotEmpty) {
         searchResults = List.from(items);
@@ -72,7 +75,6 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 12),
             title: Text(labelText),
-            // استخدام الدالة لعرض اسم العنصر المختار ديناميكياً
             subtitle: Text(tempValue != null ? selectedItemLabel(tempValue as T) : hintText),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
@@ -107,7 +109,7 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
           child: Column(
             children: [
               TextField(
-                decoration: InputDecoration(labelText: "بحث...", prefixIcon: const Icon(Icons.search), border: const OutlineInputBorder()),
+                decoration: const InputDecoration(labelText: "بحث...", prefixIcon: Icon(Icons.search), border: OutlineInputBorder()),
                 onChanged: onSearchQueryChanged,
               ),
               const SizedBox(height: 10),
@@ -117,20 +119,17 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
                   builder: (context, _) {
                     if (isSearching) return const Center(child: CircularProgressIndicator());
                     if (searchResults.isEmpty) return const Center(child: Text("لا توجد نتائج."));
-                    
+
                     return ListView.builder(
                       itemCount: searchResults.length,
                       itemBuilder: (context, index) {
                         final item = searchResults[index];
                         final isSelected = item == tempValue;
-                        
-                        // 🔥 السحر هنا: نغلف التصميم الذي كتبه المبرمج بخاصية الضغط
                         return InkWell(
                           onTap: () {
                             updateTemp(item);
                             Navigator.pop(sheetContext);
                           },
-                          // نعطي المبرمج العنصر وحالته، وهو يرجع لنا شكل الـ Widget!
                           child: itemBuilder(item, isSelected),
                         );
                       },

@@ -1,8 +1,8 @@
 // --- generic_search_range_controller.dart ---
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/helpers/debouncer_helper.dart';
-import '../base/base_filter_controller.dart';
-import '../../models/dropdown_range.dart'; // نستخدم نفس كلاس النطاق الذي أنشأناه سابقاً
+import '../../base/base_filter_controller.dart';
+import '../models/dropdown_range.dart';
 
 class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange<T>> {
   final String labelText;
@@ -10,20 +10,15 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
   final String toLabelText;
   final String hintText;
 
-  // مفوضات جلب وبحث البيانات
   final Future<List<T>> Function() initialFetchFunction;
   final Future<List<T>> Function(String query) searchFunction;
-  
-  // مفوضات العرض والتصميم
   final String Function(T item) selectedItemLabel;
   final Widget Function(T item, bool isSelected) itemBuilder;
 
-  // إدارة الحالة للبيانات الأولية ونتائج البحث
   List<T> _items = [];
   List<T> searchResults = [];
   bool _isLoading = false;
   bool isSearching = false;
-  
   final DebouncerHelper _debouncer = DebouncerHelper(milliseconds: 500);
 
   GenericSearchRangeController({
@@ -36,51 +31,13 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
     required this.selectedItemLabel,
     required this.itemBuilder,
     super.defaultValue,
+    super.dependencies,
+    super.isVisible,
   });
 
   Future<void> ensureDataLoaded() async {
     if (_items.isNotEmpty || _isLoading) return;
     await refreshData();
-  }
-
-  Future<void> refreshData() async {
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      final newData = await initialFetchFunction();
-
-      // الحفاظ على القيم المختارة (Stale-While-Revalidate)
-      if (tempValue != null) {
-        T? newFrom = tempValue?.fromValue;
-        T? newTo = tempValue?.toValue;
-
-        if (newFrom != null) {
-          if (!newData.contains(newFrom)) newData.insert(0, newFrom);
-          else {
-            newFrom = newData.firstWhere((e) => e == newFrom);
-          }
-        }
-        if (newTo != null) {
-          if (!newData.contains(newTo)) newData.insert(0, newTo);
-          else {
-            newTo = newData.firstWhere((e) => e == newTo);
-          }
-        }
-
-        final updatedRange = DropdownRange<T>(fromValue: newFrom, toValue: newTo);
-        tempValue = updatedRange;
-        if (appliedValue != null) appliedValue = updatedRange;
-      }
-
-      _items = newData;
-      searchResults = List.from(_items); // تحديث نتائج البحث الافتراضية
-    } catch (e) {
-      // تجاهل الخطأ للحفاظ على الواجهة
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
   }
 
   void onSearchQueryChanged(String query) {
@@ -106,8 +63,58 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
     });
   }
 
+  // --- generic_search_range_controller.dart ---
+
   @override
-  Widget buildWidget(BuildContext context) {
+  void onParentValueChanged() {
+    _items = [];
+    searchResults = [];
+    tempValue = null; // مسح المسودة فقط
+    super.onParentValueChanged();
+
+    if (isVisible == null || isVisible!()) {
+      refreshData();
+    }
+  }
+
+  Future<void> refreshData() async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final newData = await initialFetchFunction();
+
+      // دالة المزامنة المزدوجة للنطاقات
+      DropdownRange<T>? syncRange(DropdownRange<T>? currentRange) {
+        if (currentRange == null) return null;
+        T? f = currentRange.fromValue;
+        T? t = currentRange.toValue;
+
+        if (f != null) {
+          if (!newData.contains(f)) newData.insert(0, f);
+          else f = newData.firstWhere((e) => e == f);
+        }
+        if (t != null) {
+          if (!newData.contains(t)) newData.insert(0, t);
+          else t = newData.firstWhere((e) => e == t);
+        }
+        return DropdownRange<T>(fromValue: f, toValue: t);
+      }
+
+      // مزامنة المسودة والقيمة المعتمدة بشكل منفصل تماماً
+      if (tempValue != null) tempValue = syncRange(tempValue);
+      if (appliedValue != null) appliedValue = syncRange(appliedValue);
+
+      _items = newData;
+      searchResults = List.from(_items);
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  @override
+  Widget buildFilterWidget(BuildContext context) {
     ensureDataLoaded();
 
     return ListenableBuilder(
@@ -115,7 +122,6 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
       builder: (context, _) {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
-          // توحيد التصميم مع حقول التاريخ والـ Dropdown Range
           child: InputDecorator(
             decoration: InputDecoration(
               labelText: labelText,
@@ -124,41 +130,20 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (_isLoading)
-                    const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                  IconButton(
-                    icon: const Icon(Icons.refresh, color: Colors.blue, size: 20),
-                    onPressed: () => refreshData(),
-                  ),
+                  if (_isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
                   if (tempValue?.fromValue != null || tempValue?.toValue != null)
-                    IconButton(
-                      icon: const Icon(Icons.close, color: Colors.red, size: 20),
-                      onPressed: () => clear(),
-                    ),
+                    IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
                 ],
               ),
             ),
             child: Row(
               children: [
-                Expanded(
-                  child: _buildSearchButton(
-                    context,
-                    label: fromLabelText,
-                    value: tempValue?.fromValue,
-                    isFrom: true,
-                  ),
-                ),
+                Expanded(child: _buildSearchButton(context, label: fromLabelText, value: tempValue?.fromValue, isFrom: true)),
                 const SizedBox(width: 8),
-                Container(width: 1, height: 30, color: Colors.grey.shade300), // خط فاصل
+                Container(width: 1, height: 30, color: Colors.grey.shade300),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: _buildSearchButton(
-                    context,
-                    label: toLabelText,
-                    value: tempValue?.toValue,
-                    isFrom: false,
-                  ),
-                ),
+                Expanded(child: _buildSearchButton(context, label: toLabelText, value: tempValue?.toValue, isFrom: false)),
               ],
             ),
           ),
@@ -187,11 +172,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
                 Expanded(
                   child: Text(
                     value != null ? selectedItemLabel(value) : hintText,
-                    style: TextStyle(
-                      fontWeight: value != null ? FontWeight.bold : FontWeight.normal,
-                      fontSize: 13,
-                      color: value != null ? Colors.black : Colors.grey.shade600,
-                    ),
+                    style: TextStyle(fontWeight: value != null ? FontWeight.bold : FontWeight.normal, fontSize: 13, color: value != null ? Colors.black : Colors.grey.shade600),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -205,7 +186,6 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
   }
 
   void _openSearchSheet(BuildContext context, {required bool isFrom}) {
-    // تصفير نتائج البحث للوضع الافتراضي قبل الفتح
     searchResults = List.from(_items);
     isSearching = false;
 
@@ -219,11 +199,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
           child: Column(
             children: [
               TextField(
-                decoration: InputDecoration(
-                  labelText: "بحث (${isFrom ? fromLabelText : toLabelText})...", 
-                  prefixIcon: const Icon(Icons.search), 
-                  border: const OutlineInputBorder()
-                ),
+                decoration: InputDecoration(labelText: "بحث (${isFrom ? fromLabelText : toLabelText})...", prefixIcon: const Icon(Icons.search), border: const OutlineInputBorder()),
                 onChanged: onSearchQueryChanged,
               ),
               const SizedBox(height: 10),
@@ -233,14 +209,13 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
                   builder: (context, _) {
                     if (isSearching) return const Center(child: CircularProgressIndicator());
                     if (searchResults.isEmpty) return const Center(child: Text("لا توجد نتائج."));
-                    
+
                     return ListView.builder(
                       itemCount: searchResults.length,
                       itemBuilder: (context, index) {
                         final item = searchResults[index];
-                        // تحديد هل هذا العنصر هو المختار حالياً (لـ "من" أو لـ "إلى" حسب جهة الفتح)
                         final isSelected = isFrom ? item == tempValue?.fromValue : item == tempValue?.toValue;
-                        
+
                         return InkWell(
                           onTap: () {
                             final current = tempValue ?? DropdownRange<T>();
@@ -250,7 +225,6 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
                             ));
                             Navigator.pop(sheetContext);
                           },
-                          // تمرير التصميم المخصص للمبرمج
                           child: itemBuilder(item, isSelected),
                         );
                       },
