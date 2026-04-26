@@ -87,16 +87,36 @@ class _DynamicReportScreenState extends State<DynamicReportScreen> {
               ...widget.strategy.filterControllers.map((f) => f.buildWidget(context)),
 
               const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  // اعتماد المسودة وإغلاق الشاشة
-                  for (var f in widget.strategy.filterControllers) {
-                    f.commit();
-                  }
-                  Navigator.pop(context);
-                  _loadData(); // جلب البيانات تلقائياً بعد الفلترة
-                },
-                child: const Text("تطبيق الفلاتر وبحث"),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        // اعتماد المسودة وإغلاق الشاشة
+                        for (var f in widget.strategy.filterControllers) {
+                          f.commit();
+                        }
+                        Navigator.pop(context);
+                        _loadData(); // جلب البيانات تلقائياً بعد الفلترة
+                      },
+                      child: const Text("تطبيق الفلاتر وبحث"),
+                    ),
+                  ),
+                  // زر إعادة التعيين الكلي
+                  Expanded(
+                    child: TextButton.icon(
+                      onPressed: () {
+                        // السحر هنا: نمر على كل كنترولر في الاستراتيجية ونصفره
+                        for (var controller in widget.strategy.filterControllers) {
+                          controller.resetToDefault();
+                        }
+                        // اختياري: يمكنك إغلاق الشاشة أو تحديث البيانات فوراً
+                      },
+                      icon: const Icon(Icons.restore, color: Colors.orange, size: 20),
+                      label: const Text("إعادة تعيين الكل", style: TextStyle(color: Colors.orange)),
+                    ),
+                  ),
+                ],
               )
             ],
           ),

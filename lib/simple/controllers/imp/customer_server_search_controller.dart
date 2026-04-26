@@ -51,11 +51,10 @@ class CustomerServerSearchController extends BaseDataFilterController<CustomerMo
     });
   }
 
+// --- customer_server_search_controller.dart ---
   @override
   Widget buildWidget(BuildContext context) {
-    // 5. التعديل الخامس: طلب التأكد من تحميل البيانات الأولية
     ensureDataLoaded().then((_) {
-      // بعد اكتمال التحميل المبدئي، إذا لم يقم المستخدم بالبحث بعد، نجعل النتائج هي البيانات الأولية
       if (searchResults.isEmpty && items.isNotEmpty) {
         searchResults = List.from(items);
         notifyListeners();
@@ -71,15 +70,32 @@ class CustomerServerSearchController extends BaseDataFilterController<CustomerMo
             contentPadding: const EdgeInsets.symmetric(horizontal: 12),
             title: const Text("العميل (بحث أونلاين)"),
             subtitle: Text(tempValue?.name ?? "اضغط للبحث في السيرفر..."),
-            trailing: isLoading
-                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.search),
+            // التعديل هنا: إضافة Row يحتوي على الأزرار
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (isLoading)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 8.0),
+                    child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.blue, size: 20),
+                  onPressed: () => refreshData(),
+                ),
+                if (tempValue != null)
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.red, size: 20),
+                    onPressed: () => clear(),
+                  ),
+                const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+              ],
+            ),
             shape: RoundedRectangleBorder(
               side: const BorderSide(color: Colors.grey),
               borderRadius: BorderRadius.circular(4),
             ),
             onTap: () {
-              // ضمان بدء التحميل إذا لم يكن قد بدأ
               ensureDataLoaded();
               _openSearchSheet(context);
             },
@@ -173,10 +189,38 @@ class _ServerSearchSheet extends StatelessWidget {
                     itemCount: controller.searchResults.length,
                     itemBuilder: (context, index) {
                       final customer = controller.searchResults[index];
+
+                      // 1. فحص هل هذا العنصر هو العنصر المختار حالياً؟
+                      final bool isSelected = customer == controller.tempValue;
+
                       return ListTile(
-                        title: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        // 2. تفعيل حالة الاختيار (يغير لون النص تلقائياً)
+                        selected: isSelected,
+                        // 3. تغيير لون الخلفية للعنصر المختار بلون خفيف
+                        selectedTileColor: Colors.blue.withOpacity(0.1),
+
+                        title: Text(
+                          customer.name,
+                          style: TextStyle(
+                            // خط أعرض للعنصر المختار
+                            fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold,
+                          ),
+                        ),
                         subtitle: Text(customer.phone),
-                        leading: const CircleAvatar(child: Icon(Icons.person)),
+
+                        leading: CircleAvatar(
+                          backgroundColor: isSelected ? Colors.blue : Colors.grey.shade300,
+                          child: Icon(
+                            Icons.person,
+                            color: isSelected ? Colors.white : Colors.black54,
+                          ),
+                        ),
+
+                        // 4. وضع علامة "صح" جهة اليسار إذا كان مختاراً
+                        trailing: isSelected
+                            ? const Icon(Icons.check_circle, color: Colors.blue)
+                            : null,
+
                         onTap: () => onCustomerSelected(customer),
                       );
                     },

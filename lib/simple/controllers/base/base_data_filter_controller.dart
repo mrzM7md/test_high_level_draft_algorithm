@@ -2,7 +2,6 @@
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
 
 abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
-  // هنا نحفظ البيانات (بديل firstData العمياء)
   List<T> _items = [];
   List<T> get items => _items;
 
@@ -12,25 +11,37 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
-  // هذه الدالة السحرية للتحميل لمرة واحدة فقط
   Future<void> ensureDataLoaded() async {
-    if (_items.isNotEmpty || _isLoading) return; // تم التحميل مسبقاً
+    if (_items.isNotEmpty || _isLoading) return;
+    await _fetchInternal();
+  }
 
+  // التعديل الجوهري: حذف سطر _items = [];
+  Future<void> refreshData() async {
+    await _fetchInternal();
+  }
+
+  Future<void> _fetchInternal() async {
     _isLoading = true;
     _errorMessage = null;
-    // نبلغ الواجهة برسم دائرة التحميل
-    notifyListeners(); 
+    notifyListeners();
 
     try {
-      _items = await fetchDataFromServer();
+      // نجلب البيانات في متغير مؤقت أولاً
+      final newData = await fetchDataFromServer();
+
+      // التعديل الجوهري: لا نستبدل القائمة إلا عند النجاح
+      _items = newData;
+      _errorMessage = null;
     } catch (e) {
-      _errorMessage = "حدث خطأ أثناء جلب البيانات";
+      // في حالة الفشل: تبقى _items كما هي (البيانات القديمة)
+      _errorMessage = "عذراً، تعذر تحديث البيانات. تأكد من الاتصال.";
+      // يمكنك هنا استخدام snackbar أو toast لعرض الخطأ دون تدمير الواجهة
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // كل فلتر يقرر من أين يجلب بياناته
   Future<List<T>> fetchDataFromServer();
 }

@@ -1,3 +1,4 @@
+// --- category_filter_controller.dart ---
 import 'package:flutter/material.dart';
 
 import '../../models/category_model.dart';
@@ -16,32 +17,40 @@ class CategoryFilterController extends BaseDataFilterController<CategoryModel> {
 
   @override
   Widget buildWidget(BuildContext context) {
-    // بمجرد بناء الواجهة، نطلب التأكد من البيانات
     ensureDataLoaded();
 
     return ListenableBuilder(
       listenable: this,
       builder: (context, _) {
-        if (isLoading) {
-          return const Padding(
-            padding: EdgeInsets.all(8.0),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        if (errorMessage != null) {
-          return Text(errorMessage!, style: const TextStyle(color: Colors.red));
-        }
-
-        // استخدام items التي تم جلبها
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: DropdownButtonFormField<CategoryModel>(
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: "اختر التصنيف",
-              border: OutlineInputBorder(),
+              border: const OutlineInputBorder(),
+              // عرض أيقونة التحميل بجانب زر التحديث
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isLoading)
+                    const SizedBox(
+                        width: 20, height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2)
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: Colors.blue, size: 20),
+                    onPressed: () => refreshData(),
+                  ),
+                  if (tempValue != null)
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.red, size: 20),
+                      onPressed: () => clear(),
+                    ),
+                ],
+              ),
             ),
-            value: tempValue,
+            // 🔥 حماية الـ Dropdown: إذا لم نجد العنصر (لأي سبب) نضع null
+            value: items.contains(tempValue) ? tempValue : null,
             items: items.map((cat) => DropdownMenuItem(
               value: cat,
               child: Text(cat.name),

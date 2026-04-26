@@ -1,7 +1,6 @@
-// --- core_architecture.dart ---
-import 'package:flutter/material.dart';
+// --- base_filter_controller.dart ---
+import 'package:flutter/cupertino.dart';
 
-// 1. الكلاس الأساسي لكل الفلاتر الذكية (Smart Filter Controller)
 abstract class BaseFilterController<T> extends ChangeNotifier {
   T? appliedValue;
   T? tempValue;
@@ -10,6 +9,17 @@ abstract class BaseFilterController<T> extends ChangeNotifier {
   BaseFilterController({this.defaultValue}) {
     appliedValue = defaultValue;
     tempValue = defaultValue;
+  }
+  // الدالة الجديدة: إعادة التعيين للقيم الافتراضية
+  void resetToDefault() {
+    tempValue = defaultValue;
+    notifyListeners();
+  }
+
+  // دالة الحذف (تصفر القيمة المعتمدة والمؤقتة)
+  void clear() {
+    tempValue = null;
+    notifyListeners();
   }
 
   void updateTemp(T? value) {
@@ -27,11 +37,9 @@ abstract class BaseFilterController<T> extends ChangeNotifier {
     notifyListeners();
   }
 
-  // كل فلتر يُجبر على رسم نفسه
   Widget buildWidget(BuildContext context);
 }
 
-// 2. عقد الاستراتيجية (الواجهة التي يلتزم بها كل تقرير)
 abstract class ReportStrategy<T> {
   String get reportTitle;
   List<BaseFilterController> get filterControllers;
