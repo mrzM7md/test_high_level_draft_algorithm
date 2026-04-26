@@ -1,44 +1,63 @@
-
-
+// --- report_two_strategy.dart ---
+import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/imp/category_filter_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/imp/customer_server_search_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/generic_dropdown_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/generic_search_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/repos/api_repository.dart';
+import 'package:test_high_level_draft_algorithm/simple/models/category_model.dart';
+import 'package:test_high_level_draft_algorithm/simple/models/customer_model.dart';
 
 class ReportTwoStrategy implements ReportStrategy<String> {
   @override
-  String get reportTitle => "تقرير العملاء (بحث السيرفر المباشر)";
+  String get reportTitle => "تقرير ديناميكي (Dynamic Report)";
 
-  // 1. إنشاء الـ Repository (الذي سيتصل بالـ Backend)
   final ApiRepository repo = ApiRepository();
 
-  // 2. تعريف الكنترولر الجديد الذي صممناه
-  late final CategoryFilterController _categoryFilter;
-  late final CustomerServerSearchController _customerFilter; // الكلاس الجديد!
+  // 1. إنشاء فلتر تصنيفات (بدون كلاس مخصص!)
+  late final GenericDropdownController<CategoryModel> _categoryFilter;
+
+  // 2. إنشاء فلتر عملاء (بدون كلاس مخصص!)
+  late final GenericSearchController<CustomerModel> _customerFilter;
 
   ReportTwoStrategy() {
-    // 3. تمرير الـ Repository للكنترولرات عند بناء التقرير (Dependency Injection)
-    _categoryFilter = CategoryFilterController(repo);
-    _customerFilter = CustomerServerSearchController(repo);
+    // بناء فلتر التصنيفات
+    _categoryFilter = GenericDropdownController<CategoryModel>(
+      labelText: "اختر التصنيف",
+      fetchFunction: () => repo.fetchCategories(), // دالة الجلب
+      itemLabelBuilder: (category) => category.name, // كيف يعرض النص
+    );
+
+    // بناء فلتر العملاء وتصميم الكرت الخاص به!
+    _customerFilter = GenericSearchController<CustomerModel>(
+      labelText: "العميل",
+      hintText: "اضغط للبحث عن عميل...",
+      initialFetchFunction: () => repo.fetchCustomers(),
+      searchFunction: (query) => repo.searchCustomers(query),
+      selectedItemLabel: (customer) => customer.name,
+      // 🔥 التصميم الديناميكي: هنا تبني شكل الـ ListTile للعميل
+      itemBuilder: (customer, isSelected) {
+        return ListTile(
+          selected: isSelected,
+          selectedTileColor: Colors.blue.withOpacity(0.1),
+          title: Text(customer.name, style: TextStyle(fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold)),
+          subtitle: Text(customer.phone),
+          leading: CircleAvatar(
+            backgroundColor: isSelected ? Colors.blue : Colors.grey.shade300,
+            child: Icon(Icons.person, color: isSelected ? Colors.white : Colors.black54),
+          ),
+          trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
+        );
+      },
+    );
   }
 
-  // 4. تجميعها للواجهة
   @override
   List<BaseFilterController> get filterControllers => [_categoryFilter, _customerFilter];
 
-  // 5. جلب بيانات التقرير النهائية
   @override
   Future<List<String>> fetchReportData() async {
-    final category = _categoryFilter.appliedValue;
-    final customer = _customerFilter.appliedValue;
-
-    // هنا يتم إرسال القيم المعتمدة النهائية لجلب التقرير الفعلي
-    await Future.delayed(const Duration(milliseconds: 500));
-    return [
-      "نتيجة التقرير:",
-      "العميل المختار: ${customer?.name ?? 'الكل'}",
-      "رقم هاتفه: ${customer?.phone ?? '---'}",
-      "التصنيف: ${category?.name ?? 'الكل'}"
-    ];
+    final cat = _categoryFilter.appliedValue;
+    final cust = _customerFilter.appliedValue;
+    return ["العميل: ${cust?.name}", "التصنيف: ${cat?.name}"];
   }
 }
