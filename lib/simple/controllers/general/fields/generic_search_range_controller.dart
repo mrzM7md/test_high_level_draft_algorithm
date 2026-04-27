@@ -1,7 +1,6 @@
-// --- generic_search_range_controller.dart ---
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/helpers/debouncer_helper.dart';
-
+import 'package:test_high_level_draft_algorithm/simple/controllers/base/filter_fetch_exception.dart';
 import '../../base/base_filter_controller.dart';
 import '../models/dropdown_range.dart';
 
@@ -20,6 +19,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
   List<T> searchResults = [];
   bool _isLoading = false;
   bool isSearching = false;
+  String? errorMessage; // 🔥 متغير الخطأ
   final DebouncerHelper _debouncer = DebouncerHelper(milliseconds: 500);
 
   GenericSearchRangeController({
@@ -34,13 +34,8 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
     super.defaultValue,
     super.dependencies,
     super.isVisible,
-    super.isRequired, // 🔥 إضافة الخاصية
+    super.isRequired,
   });
-
-  Future<void> ensureDataLoaded() async {
-    if (_items.isNotEmpty || _isLoading) return;
-    await refreshData();
-  }
 
   void onSearchQueryChanged(String query) {
     _debouncer.cancel();
@@ -79,6 +74,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
 
   Future<void> refreshData() async {
     _isLoading = true;
+    errorMessage = null; // 🔥 تصفير الخطأ عند المحاولة مرة أخرى
     notifyListeners();
 
     try {
@@ -97,8 +93,9 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
           }
         }
         if (t != null) {
-          if (!newData.contains(t)) newData.insert(0, t);
-          else {
+          if (!newData.contains(t)) {
+            newData.insert(0, t);
+          } else {
             t = newData.firstWhere((e) => e == t);
           }
         }
@@ -110,10 +107,21 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
 
       _items = newData;
       searchResults = List.from(_items);
+
+    } on FilterFetchException catch (e) {
+      errorMessage = e.message; // 🔥 التقاط خطأ السيرفر
+    } catch (e) {
+      errorMessage = "فشل تحميل البيانات، تأكد من الاتصال.";
     } finally {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> ensureDataLoaded() async {
+    // 🔥 إيقاف الحلقة اللانهائية إذا فشل الجلب
+    if (_items.isNotEmpty || _isLoading || errorMessage != null) return;
+    await refreshData();
   }
 
   @override
@@ -129,7 +137,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
             decoration: InputDecoration(
               labelText: labelText,
               border: const OutlineInputBorder(),
-              errorText: validationError, // 🔥 عرض نص الخطأ
+              errorText: errorMessage ?? validationError, // 🔥 دمج الأخطاء
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,

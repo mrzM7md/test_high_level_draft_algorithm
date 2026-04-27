@@ -25,7 +25,7 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
     super.defaultValue,
     super.dependencies,
     super.isVisible,
-    super.isRequired, // 🔥 إضافة الخاصية
+    super.isRequired,
   });
 
   @override
@@ -78,7 +78,7 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
             decoration: InputDecoration(
               labelText: labelText,
               border: const OutlineInputBorder(),
-              errorText: validationError, // 🔥 عرض نص الخطأ
+              errorText: errorMessage ?? validationError, // 🔥 دمج الخطأين
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,

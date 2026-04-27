@@ -1,5 +1,6 @@
 // --- generic_dropdown_range_controller.dart ---
 import 'package:flutter/material.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/base/filter_fetch_exception.dart';
 import '../../base/base_filter_controller.dart';
 import '../models/dropdown_range.dart';
 
@@ -12,6 +13,7 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
 
   List<T> _items = [];
   bool _isLoading = false;
+  String? errorMessage; // 🔥 متغير الخطأ
 
   GenericDropdownRangeController({
     required this.labelText,
@@ -22,7 +24,7 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
     super.defaultValue,
     super.dependencies,
     super.isVisible,
-    super.isRequired, // 🔥 إضافة الخاصية
+    super.isRequired,
   });
 
   @override
@@ -38,6 +40,7 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
 
   Future<void> refreshData({bool isInitialLoad = false}) async {
     _isLoading = true;
+    errorMessage = null; // 🔥 تصفير الخطأ عند إعادة المحاولة
     notifyListeners();
 
     try {
@@ -50,15 +53,11 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
 
         if (f != null) {
           if (!newData.contains(f)) newData.insert(0, f);
-          else {
-            f = newData.firstWhere((e) => e == f);
-          }
+          else f = newData.firstWhere((e) => e == f);
         }
         if (t != null) {
           if (!newData.contains(t)) newData.insert(0, t);
-          else {
-            t = newData.firstWhere((e) => e == t);
-          }
+          else t = newData.firstWhere((e) => e == t);
         }
         return DropdownRange<T>(fromValue: f, toValue: t);
       }
@@ -67,6 +66,11 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
       if (appliedValue != null) appliedValue = syncWithNewList(appliedValue);
 
       _items = newData;
+
+    } on FilterFetchException catch (e) {
+      errorMessage = e.message; // 🔥 التقاط الخطأ المخصص
+    } catch (e) {
+      errorMessage = "فشل تحميل البيانات، تأكد من الاتصال.";
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -74,7 +78,8 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
   }
 
   Future<void> ensureDataLoaded() async {
-    if (_items.isNotEmpty || _isLoading) return;
+    // 🔥 إيقاف الحلقة اللانهائية إذا فشل الجلب
+    if (_items.isNotEmpty || _isLoading || errorMessage != null) return;
     await refreshData(isInitialLoad: true);
   }
 
@@ -91,7 +96,7 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
             decoration: InputDecoration(
               labelText: labelText,
               border: const OutlineInputBorder(),
-              errorText: validationError, // 🔥 عرض نص الخطأ
+              errorText: errorMessage ?? validationError, // 🔥 دمج خطأ السيرفر مع التحقق
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,

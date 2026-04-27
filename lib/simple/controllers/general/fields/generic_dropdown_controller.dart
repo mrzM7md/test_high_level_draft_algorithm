@@ -13,7 +13,7 @@ class GenericDropdownController<T> extends BaseDataFilterController<T> {
     super.defaultValue,
     super.dependencies,
     super.isVisible,
-    super.isRequired, // 🔥 استلام الخاصية من الاستراتيجية
+    super.isRequired,
   });
 
   @override
@@ -32,7 +32,7 @@ class GenericDropdownController<T> extends BaseDataFilterController<T> {
             decoration: InputDecoration(
               labelText: labelText,
               border: const OutlineInputBorder(),
-              errorText: validationError, // 🔥 السحر هنا: عرض رسالة الخطأ إن وُجدت
+              errorText: errorMessage ?? validationError, // 🔥 دمج الخطأين
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [

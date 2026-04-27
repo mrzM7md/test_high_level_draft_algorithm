@@ -1,5 +1,5 @@
-// --- base_data_filter_controller.dart ---
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
+import 'filter_fetch_exception.dart'; // 🔥 مسار ملف الاستثناء
 
 abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
   List<T> _items = [];
@@ -13,7 +13,7 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
     super.defaultValue,
     super.dependencies,
     super.isVisible,
-    super.isRequired, // 🔥 تمرير الخاصية للآباء
+    super.isRequired,
   });
 
   @override
@@ -21,29 +21,38 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
     _items = [];
     tempValue = null;
     super.onParentValueChanged();
+
     if (isVisible == null || isVisible!()) {
       refreshData();
     }
   }
 
-  Future<void> refreshData() async { await _fetchInternal(); }
+  Future<void> refreshData() async {
+    await _fetchInternal();
+  }
 
   Future<void> _fetchInternal() async {
     _isLoading = true;
+    _errorMessage = null; // 🔥 تصفير الخطأ عند المحاولة الجديدة
     notifyListeners();
+
     try {
       final newData = await fetchDataFromServer();
+
       T? syncItem(T? currentItem) {
         if (currentItem == null) return null;
         if (!newData.contains(currentItem)) return currentItem;
         return newData.firstWhere((e) => e == currentItem);
       }
+
       tempValue = syncItem(tempValue);
       appliedValue = syncItem(appliedValue);
       _items = newData;
-      _errorMessage = null;
+
+    } on FilterFetchException catch (e) {
+      _errorMessage = e.message; // 🔥 التقاط خطأ السيرفر المخصص
     } catch (e) {
-      _errorMessage = "عذراً، تعذر تحديث البيانات.";
+      _errorMessage = "عذراً، تعذر تحديث البيانات."; // خطأ عام
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -51,7 +60,8 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
   }
 
   Future<void> ensureDataLoaded() async {
-    if (_items.isNotEmpty || _isLoading) return;
+    // 🔥 إيقاف حلقة إعادة البناء اللانهائية إذا كان هناك خطأ
+    if (_items.isNotEmpty || _isLoading || _errorMessage != null) return;
     await _fetchInternal();
   }
 
