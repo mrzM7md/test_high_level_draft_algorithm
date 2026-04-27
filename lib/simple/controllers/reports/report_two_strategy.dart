@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/base/filter_fetch_exception.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_multi_search_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_multi_search_range_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_range_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/models/category_model.dart';
@@ -21,6 +24,8 @@ class ReportTwoStrategy implements ReportStrategy<String> {
   // 2. الفلاتر الجديدة: البحث المترابط
   late final GenericSearchController<CustomerModel> _mainCustomerSearch;
   late final GenericSearchRangeController<CustomerModel> _customerRangeSearch;
+  late final GenericMultiSearchController<CustomerModel> _multiCustomerSearch;
+  late final GenericMultiSearchRangeController<CustomerModel> _multiRangeCustomerSearch;
 
   ReportTwoStrategy() {
     // --- قسم التصنيفات ---
@@ -85,14 +90,70 @@ class ReportTwoStrategy implements ReportStrategy<String> {
       dependencies: [_mainCustomerSearch],
       isVisible: () => _mainCustomerSearch.tempValue != null, // يظهر فقط إذا اخترنا عميلاً
     );
+
+    _multiCustomerSearch = GenericMultiSearchController<CustomerModel>(
+      labelText: "تحديد الفروع أو المناديب",
+      hintText: "اضغط لاختيار أكثر من فرع...",
+
+      // الدوال المعتادة للبحث وجلب البيانات
+      initialFetchFunction: repo.fetchCustomers,
+      searchFunction: (query) => repo.searchCustomers(query),
+
+      // لاستخراج النص في الـ Chips الصغيرة
+      selectedItemLabel: (customer) => customer.name,
+
+      // تصميم العنصر في قائمة البحث
+      itemBuilder: (customer, isSelected) => ListTile(
+        selected: isSelected,
+        selectedTileColor: Colors.blue.shade50,
+        title: Text(customer.name, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+        subtitle: Text(customer.phone),
+        // عرض مربع اختيار (Checkbox) ليكون أوضح للمستخدم
+        trailing: Checkbox(
+          value: isSelected,
+          onChanged: (val) {}, // يتم التحكم به عبر onTap الخاص بالـ InkWell
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        ),
+      ),
+      isRequired: true, // يدعم الـ Validation تلقائياً!
+    );
+
+    _multiRangeCustomerSearch = GenericMultiSearchRangeController<CustomerModel>(
+      labelText: "نطاقات العملاء المتعددة",
+      fromLabelText: "من عميل",
+      toLabelText: "إلى عميل",
+      hintText: "اختر...",
+
+      initialFetchFunction: repo.fetchCustomers,
+
+      // initialFetchFunction: () async {
+      //   final result = await repo.fetchCustomersEither();
+      //   return result.fold(
+      //         (fail) => throw FilterFetchException(fail.message),
+      //         (data) => data,
+      //   );
+      // },
+
+      searchFunction: (query) => repo.searchCustomers(query),
+
+      selectedItemLabel: (customer) => customer.name,
+      itemBuilder: (customer, isSelected) => ListTile(
+        selected: isSelected,
+        title: Text(customer.name),
+        trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
+      ),
+      isRequired: true, // يدعم الإجبار الذكي!
+    );
   }
 
   @override
   List<BaseFilterController> get filterControllers => [
     _mainCategoryFilter,
     _subCategoryRangeFilter,
-    _mainCustomerSearch,   // الحقل الجديد الأول
-    _customerRangeSearch,  // الحقل الجديد الثاني (المعتمد)
+    _mainCustomerSearch,
+    _customerRangeSearch,
+    _multiCustomerSearch,
+    _multiRangeCustomerSearch
   ];
 
   @override
