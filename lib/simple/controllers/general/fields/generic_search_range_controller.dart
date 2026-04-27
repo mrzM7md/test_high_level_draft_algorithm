@@ -1,6 +1,7 @@
 // --- generic_search_range_controller.dart ---
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/helpers/debouncer_helper.dart';
+
 import '../../base/base_filter_controller.dart';
 import '../models/dropdown_range.dart';
 
@@ -33,6 +34,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
     super.defaultValue,
     super.dependencies,
     super.isVisible,
+    super.isRequired, // 🔥 إضافة الخاصية
   });
 
   Future<void> ensureDataLoaded() async {
@@ -63,13 +65,11 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
     });
   }
 
-  // --- generic_search_range_controller.dart ---
-
   @override
   void onParentValueChanged() {
     _items = [];
     searchResults = [];
-    tempValue = null; // مسح المسودة فقط
+    tempValue = null;
     super.onParentValueChanged();
 
     if (isVisible == null || isVisible!()) {
@@ -84,24 +84,27 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
     try {
       final newData = await initialFetchFunction();
 
-      // دالة المزامنة المزدوجة للنطاقات
       DropdownRange<T>? syncRange(DropdownRange<T>? currentRange) {
         if (currentRange == null) return null;
         T? f = currentRange.fromValue;
         T? t = currentRange.toValue;
 
         if (f != null) {
-          if (!newData.contains(f)) newData.insert(0, f);
-          else f = newData.firstWhere((e) => e == f);
+          if (!newData.contains(f)) {
+            newData.insert(0, f);
+          } else {
+            f = newData.firstWhere((e) => e == f);
+          }
         }
         if (t != null) {
           if (!newData.contains(t)) newData.insert(0, t);
-          else t = newData.firstWhere((e) => e == t);
+          else {
+            t = newData.firstWhere((e) => e == t);
+          }
         }
         return DropdownRange<T>(fromValue: f, toValue: t);
       }
 
-      // مزامنة المسودة والقيمة المعتمدة بشكل منفصل تماماً
       if (tempValue != null) tempValue = syncRange(tempValue);
       if (appliedValue != null) appliedValue = syncRange(appliedValue);
 
@@ -126,6 +129,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
             decoration: InputDecoration(
               labelText: labelText,
               border: const OutlineInputBorder(),
+              errorText: validationError, // 🔥 عرض نص الخطأ
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,

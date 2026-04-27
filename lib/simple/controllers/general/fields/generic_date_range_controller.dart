@@ -16,8 +16,9 @@ class GenericDateRangeController extends BaseFilterController<DateRange> {
     DateRange? defaultRange,
     this.firstDate,
     this.lastDate,
-    super.dependencies, // الاعتماديات (الفلاتر التي يستمع لها)
-    super.isVisible,    // شرط الظهور
+    super.dependencies,
+    super.isVisible,
+    super.isRequired, // 🔥 إضافة الخاصية
   }) : super(defaultValue: defaultRange);
 
   @override
@@ -31,8 +32,8 @@ class GenericDateRangeController extends BaseFilterController<DateRange> {
             decoration: InputDecoration(
               labelText: labelText,
               border: const OutlineInputBorder(),
+              errorText: validationError, // 🔥 عرض نص الخطأ
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              // زر الحذف (Clear) يظهر فقط إذا كانت هناك قيمة مختارة
               suffixIcon: tempValue != null
                   ? IconButton(
                 icon: const Icon(Icons.close, color: Colors.red, size: 20),
@@ -42,7 +43,6 @@ class GenericDateRangeController extends BaseFilterController<DateRange> {
             ),
             child: Row(
               children: [
-                // حقل اختيار تاريخ البداية
                 Expanded(
                   child: _buildDateButton(
                     context,
@@ -52,9 +52,8 @@ class GenericDateRangeController extends BaseFilterController<DateRange> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Container(width: 1, height: 30, color: Colors.grey.shade300), // فاصل بصري
+                Container(width: 1, height: 30, color: Colors.grey.shade300),
                 const SizedBox(width: 8),
-                // حقل اختيار تاريخ النهاية
                 Expanded(
                   child: _buildDateButton(
                     context,
@@ -71,7 +70,6 @@ class GenericDateRangeController extends BaseFilterController<DateRange> {
     );
   }
 
-  // ويجيت مساعد لبناء أزرار اختيار التاريخ داخل الإطار
   Widget _buildDateButton(BuildContext context, {required String label, required DateTime? date, required bool isFrom}) {
     return InkWell(
       onTap: () => _pickDate(context, isFrom: isFrom),
@@ -99,7 +97,6 @@ class GenericDateRangeController extends BaseFilterController<DateRange> {
     );
   }
 
-  // فتح منتقي التاريخ (DatePicker) وتحديث القيمة المؤقتة
   Future<void> _pickDate(BuildContext context, {required bool isFrom}) async {
     final now = DateTime.now();
     final picked = await showDatePicker(

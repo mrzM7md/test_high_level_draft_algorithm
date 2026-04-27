@@ -22,14 +22,13 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
     super.defaultValue,
     super.dependencies,
     super.isVisible,
+    super.isRequired, // 🔥 إضافة الخاصية
   });
 
   @override
   void onParentValueChanged() {
     _items = [];
-    tempValue = null; // مسح المسودة فقط
-    // appliedValue يبقى كما هو بأمان
-
+    tempValue = null;
     super.onParentValueChanged();
 
     if (isVisible == null || isVisible!()) {
@@ -37,7 +36,6 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
     }
   }
 
-  // تحديث دالة refreshData لتكون حذرة
   Future<void> refreshData({bool isInitialLoad = false}) async {
     _isLoading = true;
     notifyListeners();
@@ -49,11 +47,22 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
         if (currentRange == null) return null;
         T? f = currentRange.fromValue;
         T? t = currentRange.toValue;
-        // ... (منطق الـ contains والـ firstWhere كما هو)
+
+        if (f != null) {
+          if (!newData.contains(f)) newData.insert(0, f);
+          else {
+            f = newData.firstWhere((e) => e == f);
+          }
+        }
+        if (t != null) {
+          if (!newData.contains(t)) newData.insert(0, t);
+          else {
+            t = newData.firstWhere((e) => e == t);
+          }
+        }
         return DropdownRange<T>(fromValue: f, toValue: t);
       }
 
-      // مزامنة المسودة والقيمة المعتمدة بشكل منفصل
       if (tempValue != null) tempValue = syncWithNewList(tempValue);
       if (appliedValue != null) appliedValue = syncWithNewList(appliedValue);
 
@@ -63,11 +72,11 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
       notifyListeners();
     }
   }
+
   Future<void> ensureDataLoaded() async {
     if (_items.isNotEmpty || _isLoading) return;
     await refreshData(isInitialLoad: true);
   }
-
 
   @override
   Widget buildFilterWidget(BuildContext context) {
@@ -82,6 +91,7 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
             decoration: InputDecoration(
               labelText: labelText,
               border: const OutlineInputBorder(),
+              errorText: validationError, // 🔥 عرض نص الخطأ
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,

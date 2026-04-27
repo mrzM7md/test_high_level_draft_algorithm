@@ -16,6 +16,7 @@ class GenericDateController extends BaseFilterController<DateTime> {
     this.lastDate,
     super.dependencies,
     super.isVisible,
+    super.isRequired,
   });
 
   @override
@@ -29,6 +30,7 @@ class GenericDateController extends BaseFilterController<DateTime> {
             decoration: InputDecoration(
               labelText: labelText,
               border: const OutlineInputBorder(),
+              errorText: validationError,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,

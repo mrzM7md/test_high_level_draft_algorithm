@@ -25,14 +25,16 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
     super.defaultValue,
     super.dependencies,
     super.isVisible,
+    super.isRequired, // 🔥 إضافة الخاصية
   });
 
   @override
   Future<List<T>> fetchDataFromServer() => initialFetchFunction();
+
   @override
   void onParentValueChanged() {
-    searchResults = []; // تصفير نتائج البحث
-    super.onParentValueChanged(); // سيقوم بمسح tempValue وجلب البيانات تلقائياً
+    searchResults = [];
+    super.onParentValueChanged();
   }
 
   void onSearchQueryChanged(String query) {
@@ -72,24 +74,39 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
       builder: (context, _) {
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-            title: Text(labelText),
-            subtitle: Text(tempValue != null ? selectedItemLabel(tempValue as T) : hintText),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (isLoading) const Padding(padding: EdgeInsets.only(left: 8.0), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
-                IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
-                if (tempValue != null) IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
-                const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-              ],
+          child: InputDecorator(
+            decoration: InputDecoration(
+              labelText: labelText,
+              border: const OutlineInputBorder(),
+              errorText: validationError, // 🔥 عرض نص الخطأ
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+                  if (tempValue != null) IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
+                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                ],
+              ),
             ),
-            shape: RoundedRectangleBorder(side: const BorderSide(color: Colors.grey), borderRadius: BorderRadius.circular(4)),
-            onTap: () {
-              ensureDataLoaded();
-              _openSearchSheet(context);
-            },
+            child: InkWell(
+              onTap: () {
+                ensureDataLoaded();
+                _openSearchSheet(context);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12.0),
+                child: Text(
+                  tempValue != null ? selectedItemLabel(tempValue as T) : hintText,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: tempValue != null ? FontWeight.bold : FontWeight.normal,
+                    color: tempValue != null ? Colors.black : Colors.grey.shade600,
+                  ),
+                ),
+              ),
+            ),
           ),
         );
       },
