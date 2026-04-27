@@ -1,0 +1,151 @@
+// --- generic_offline_search_controller.dart ---
+import 'package:flutter/material.dart';
+import '../../base/base_data_filter_controller.dart';
+
+class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
+  final String labelText;
+  final String hintText;
+
+  final Future<List<T>> Function() fetchAllFunction;
+  final bool Function(T item, String query) localFilterFunction;
+  final Widget Function(T item, bool isSelected) itemBuilder;
+  final String Function(T item) selectedItemLabel;
+
+  List<T> searchResults = [];
+
+  GenericOfflineSearchController({
+    required this.labelText,
+    this.hintText = "بحث...",
+    required this.fetchAllFunction,
+    required this.localFilterFunction,
+    required this.itemBuilder,
+    required this.selectedItemLabel,
+    super.defaultValue,
+    super.dependencies,
+    super.isVisible,
+    super.isRequired,
+  });
+
+  @override
+  Future<List<T>> fetchDataFromServer() => fetchAllFunction();
+
+  @override
+  void onParentValueChanged() {
+    searchResults = [];
+    super.onParentValueChanged();
+  }
+
+  void onSearchQueryChanged(String query) {
+    if (query.trim().isEmpty) {
+      searchResults = List.from(items);
+    } else {
+      final lowerQuery = query.toLowerCase().trim();
+      // فلترة القائمة وإرجاع نتائج فارغة إذا لم يوجد تطابق
+      searchResults = items.where((item) => localFilterFunction(item, lowerQuery)).toList();
+    }
+    notifyListeners();
+  }
+
+  @override
+  Widget buildFilterWidget(BuildContext context) {
+    ensureDataLoaded(); // 🔥 تم إزالة الكود الخاطئ من هنا بالكامل
+
+    return ListenableBuilder(
+      listenable: this,
+      builder: (context, _) {
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: InputDecorator(
+            decoration: InputDecoration(
+              labelText: labelText,
+              border: const OutlineInputBorder(),
+              errorText: errorMessage ?? validationError,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              suffixIcon: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                  IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+                  if (tempValue != null) IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
+                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                ],
+              ),
+            ),
+            child: InkWell(
+              onTap: () {
+                ensureDataLoaded();
+                _openSearchSheet(context);
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12.0),
+                child: Text(
+                  tempValue != null ? selectedItemLabel(tempValue as T) : hintText,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: tempValue != null ? FontWeight.bold : FontWeight.normal,
+                    color: tempValue != null ? Colors.black : Colors.grey.shade600,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _openSearchSheet(BuildContext context) {
+    // 🔥 التهيئة الصحيحة: عند فتح الشاشة نملأ النتائج بكل البيانات لكي يراها المستخدم قبل أن يبحث
+    searchResults = List.from(items);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(top: 20, left: 16, right: 16, bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+        child: SizedBox(
+          height: MediaQuery.of(sheetContext).size.height * 0.7,
+          child: Column(
+            children: [
+              TextField(
+                decoration: const InputDecoration(
+                    labelText: "بحث...",
+                    prefixIcon: Icon(Icons.search),
+                    border: OutlineInputBorder()
+                ),
+                onChanged: onSearchQueryChanged,
+                autofocus: true, // يفتح لوحة المفاتيح تلقائياً
+              ),
+              const SizedBox(height: 10),
+
+              Expanded(
+                child: ListenableBuilder(
+                  listenable: this,
+                  builder: (context, _) {
+                    // 🔥 الآن إذا كانت النتائج فارغة، ستظهر هذه الرسالة بكل ثقة!
+                    if (searchResults.isEmpty) return const Center(child: Text("لا توجد نتائج."));
+
+                    return ListView.builder(
+                      itemCount: searchResults.length,
+                      itemBuilder: (context, index) {
+                        final item = searchResults[index];
+                        final isSelected = item == tempValue;
+                        return InkWell(
+                          onTap: () {
+                            updateTemp(item);
+                            Navigator.pop(sheetContext);
+                          },
+                          child: itemBuilder(item, isSelected),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

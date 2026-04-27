@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_offline_search_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/filter_fetch_exception.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_range_controller.dart';
@@ -26,6 +27,7 @@ class ReportTwoStrategy implements ReportStrategy<String> {
   late final GenericSearchRangeController<CustomerModel> _customerRangeSearch;
   late final GenericMultiSearchController<CustomerModel> _multiCustomerSearch;
   late final GenericMultiSearchRangeController<CustomerModel> _multiRangeCustomerSearch;
+  late final GenericOfflineSearchController<CustomerModel> _offlineCustomerSearch;
 
   ReportTwoStrategy() {
     // --- قسم التصنيفات ---
@@ -144,6 +146,37 @@ class ReportTwoStrategy implements ReportStrategy<String> {
       ),
       isRequired: true, // يدعم الإجبار الذكي!
     );
+
+    _offlineCustomerSearch = GenericOfflineSearchController<CustomerModel>(
+      labelText: "اختر العميل (بحث سريع)",
+      hintText: "ابحث بالاسم أو الرقم...",
+
+      fetchAllFunction: repo.fetchCustomers,
+      // 1. الدالة التي تجلب كل البيانات دفعة واحدة (تستدعى مرة واحدة)
+      // fetchAllFunction: () async {
+      //   final result = await repo.fetchCustomersEither();
+      //   return result.fold(
+      //         (fail) => throw FilterFetchException(fail.message),
+      //         (data) => data,
+      //   );
+      // },
+
+      // 2. السحر هنا: كيف تبحث في البيانات المجلوبة؟ (بدون إنترنت)
+      localFilterFunction: (customer, query) {
+        // يمكنك البحث في أكثر من حقل (الاسم أو رقم الهاتف)
+        return customer.name.toLowerCase().contains(query) ||
+            customer.phone.contains(query);
+      },
+
+      selectedItemLabel: (customer) => customer.name,
+      itemBuilder: (customer, isSelected) => ListTile(
+        selected: isSelected,
+        title: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+        subtitle: Text(customer.phone),
+        trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
+      ),
+      isRequired: true,
+    );
   }
 
   @override
@@ -153,7 +186,8 @@ class ReportTwoStrategy implements ReportStrategy<String> {
     _mainCustomerSearch,
     _customerRangeSearch,
     _multiCustomerSearch,
-    _multiRangeCustomerSearch
+    _multiRangeCustomerSearch,
+    _offlineCustomerSearch,
   ];
 
   @override
