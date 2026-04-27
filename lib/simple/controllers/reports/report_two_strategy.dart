@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_offline_search_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/filter_fetch_exception.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_multi_offline_search_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_multi_search_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_multi_search_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_offline_search_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_range_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/models/category_model.dart';
@@ -28,6 +28,7 @@ class ReportTwoStrategy implements ReportStrategy<String> {
   late final GenericMultiSearchController<CustomerModel> _multiCustomerSearch;
   late final GenericMultiSearchRangeController<CustomerModel> _multiRangeCustomerSearch;
   late final GenericOfflineSearchController<CustomerModel> _offlineCustomerSearch;
+  late final GenericMultiOfflineSearchController<CustomerModel> _offlineMultiBranchSearch;
 
   ReportTwoStrategy() {
     // --- قسم التصنيفات ---
@@ -177,6 +178,42 @@ class ReportTwoStrategy implements ReportStrategy<String> {
       ),
       isRequired: true,
     );
+
+    _offlineMultiBranchSearch = GenericMultiOfflineSearchController<CustomerModel>(
+      labelText: "تحديد الفروع المعنية (بحث سريع)",
+      hintText: "اضغط لاختيار فروع...",
+
+      // جلب البيانات مرة واحدة فقط
+      fetchAllFunction: repo.fetchCustomers,
+
+      // fetchAllFunction: () async {
+      //   final result = await repo.fetchCustomersEither();
+      //   return result.fold(
+      //         (fail) => throw FilterFetchException(fail.message),
+      //         (data) => data,
+      //   );
+      // },
+
+      // الفلترة تتم محلياً بسرعة البرق بمجرد كتابة أي حرف
+      localFilterFunction: (customer, query) {
+        return customer.name.toLowerCase().contains(query) ||
+            customer.phone.contains(query);
+      },
+
+      selectedItemLabel: (customer) => customer.name,
+      itemBuilder: (customer, isSelected) => ListTile(
+        selected: isSelected,
+        selectedTileColor: Colors.blue.shade50,
+        title: Text(customer.name, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+        subtitle: Text(customer.phone),
+        trailing: Checkbox(
+          value: isSelected,
+          onChanged: (val) {},
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        ),
+      ),
+      isRequired: true,
+    );
   }
 
   @override
@@ -188,6 +225,7 @@ class ReportTwoStrategy implements ReportStrategy<String> {
     _multiCustomerSearch,
     _multiRangeCustomerSearch,
     _offlineCustomerSearch,
+    _offlineMultiBranchSearch,
   ];
 
   @override
