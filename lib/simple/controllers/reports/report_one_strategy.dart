@@ -4,8 +4,10 @@ import 'package:test_high_level_draft_algorithm/simple/controllers/general/field
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_date_range_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_number_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_text_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/data_range.dart';
 import 'package:test_high_level_draft_algorithm/simple/models/category_model.dart';
 import 'package:test_high_level_draft_algorithm/simple/models/customer_model.dart';
@@ -28,6 +30,9 @@ class ReportOneStrategy implements ReportStrategy<String> {
   // 3. فلاتر العملاء (مفرد ونطاق)
   late final GenericSearchController<CustomerModel> _customerFilter; // الحقل الجديد
   late final GenericSearchRangeController<CustomerModel> _customerRangeFilter;
+
+  late final GenericTextController _noteFilter;
+  late final GenericNumberController _amountFilter;
 
   ReportOneStrategy() {
     // بناء فلاتر التاريخ
@@ -107,6 +112,17 @@ class ReportOneStrategy implements ReportStrategy<String> {
         );
       },
     );
+
+    _noteFilter = GenericTextController(
+      labelText: "ملاحظات الفاتورة",
+      hintText: "ابحث بكلمة في الملاحظات...",
+    );
+
+    _amountFilter = GenericNumberController(
+      labelText: "مبلغ الفاتورة (أكبر من)",
+      hintText: "0.0",
+      isRequired: true, // يمكن جعله إجبارياً أيضاً!
+    );
   }
 
   @override
@@ -117,6 +133,8 @@ class ReportOneStrategy implements ReportStrategy<String> {
     _categoryRangeFilter,
     _customerFilter, // تم وضعه فوق حقل النطاق
     _customerRangeFilter,
+    _noteFilter,
+    _amountFilter
   ];
 
   @override
@@ -127,6 +145,8 @@ class ReportOneStrategy implements ReportStrategy<String> {
     final catRange = _categoryRangeFilter.appliedValue;
     final cust = _customerFilter.appliedValue; // القيمة المعتمدة للبحث المفرد
     final cstRange = _customerRangeFilter.appliedValue;
+    final noteFilter = _noteFilter.appliedValue;
+    final amountFilter = _amountFilter.appliedValue;
 
     await Future.delayed(const Duration(milliseconds: 500));
 
@@ -139,6 +159,8 @@ class ReportOneStrategy implements ReportStrategy<String> {
       "العميل المحدد: ${cust?.name ?? 'الكل'}",
       "من عميل (نطاق): ${cstRange?.fromValue?.name}",
       "إلى عميل (نطاق): ${cstRange?.toValue?.name}",
+      "ملاحظة: $noteFilter",
+      "إالكمية: $amountFilter",
     ];
   }
 }
