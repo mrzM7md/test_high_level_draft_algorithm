@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/helpers/debouncer_helper.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/base/filter_fetch_exception.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/filter_fetch_exception.dart';
 import '../../base/base_filter_controller.dart';
 import '../models/dropdown_range.dart';
 
