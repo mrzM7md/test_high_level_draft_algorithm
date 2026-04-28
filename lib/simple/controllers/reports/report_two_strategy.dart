@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/containers/filter_group_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_checkbox_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_range_controller.dart';
@@ -31,6 +32,7 @@ class ReportTwoStrategy implements ReportStrategy<String> {
   late final GenericOfflineSearchController<CustomerModel> _offlineCustomerSearch;
   late final GenericMultiOfflineSearchController<CustomerModel> _offlineMultiBranchSearch;
   late final GenericCheckboxController _hideZeroBalancesFilter;
+  late final FilterGroupController _advancedSettingsGroup;
 
   ReportTwoStrategy() {
     // --- قسم التصنيفات ---
@@ -222,6 +224,30 @@ class ReportTwoStrategy implements ReportStrategy<String> {
       labelText: "إخفاء الأرصدة الصفرية من التقرير",
       defaultValue: true,
     );
+
+    _advancedSettingsGroup = FilterGroupController(
+      // نربطه بحقل التصنيف الرئيسي لكي يستمع لتغيراته
+      dependencies: [_mainCategoryFilter],
+
+      // نحدد كيف يُبنى العنوان بناءً على القيمة الحالية
+      titleBuilder: () {
+        final selectedCategory = _mainCategoryFilter.tempValue;
+        if (selectedCategory == null) {
+          return "إعدادات متقدمة (اختر تصنيفاً أولاً)";
+        }
+        return "إعدادات مخصصة لـ (${selectedCategory.name})";
+      },
+
+      // نضع الحقول التي نريدها داخل الصندوق
+      childrenFilters: [
+        _subCategoryRangeFilter,
+        _hideZeroBalancesFilter, // حقل الـ Checkbox الذي صنعناه
+      ],
+      isExpandable: true, // سيكون صندوقاً قابلاً للطي
+
+      // يمكنك حتى إخفاء الصندوق بالكامل إذا لم يتم اختيار تصنيف!
+      isVisible: () => _mainCategoryFilter.tempValue != null,
+    );
   }
 
   @override
@@ -235,6 +261,7 @@ class ReportTwoStrategy implements ReportStrategy<String> {
     _offlineCustomerSearch,
     _offlineMultiBranchSearch,
     _hideZeroBalancesFilter,
+    _advancedSettingsGroup,
   ];
 
   @override
