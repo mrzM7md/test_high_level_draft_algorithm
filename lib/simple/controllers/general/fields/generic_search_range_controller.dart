@@ -19,7 +19,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
   List<T> searchResults = [];
   bool _isLoading = false;
   bool isSearching = false;
-  String? errorMessage; // 🔥 متغير الخطأ
+  String? errorMessage;
   final DebouncerHelper _debouncer = DebouncerHelper(milliseconds: 500);
 
   GenericSearchRangeController({
@@ -35,6 +35,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
     super.dependencies,
     super.isVisible,
     super.isRequired,
+    super.showReloadButton, // 🔥 تمرير
   });
 
   void onSearchQueryChanged(String query) {
@@ -74,7 +75,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
 
   Future<void> refreshData() async {
     _isLoading = true;
-    errorMessage = null; // 🔥 تصفير الخطأ عند المحاولة مرة أخرى
+    errorMessage = null;
     notifyListeners();
 
     try {
@@ -109,7 +110,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
       searchResults = List.from(_items);
 
     } on FilterFetchException catch (e) {
-      errorMessage = e.message; // 🔥 التقاط خطأ السيرفر
+      errorMessage = e.message;
     } catch (e) {
       errorMessage = "فشل تحميل البيانات، تأكد من الاتصال.";
     } finally {
@@ -119,7 +120,6 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
   }
 
   Future<void> ensureDataLoaded() async {
-    // 🔥 إيقاف الحلقة اللانهائية إذا فشل الجلب
     if (_items.isNotEmpty || _isLoading || errorMessage != null) return;
     await refreshData();
   }
@@ -137,13 +137,14 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
             decoration: InputDecoration(
               labelText: labelText,
               border: const OutlineInputBorder(),
-              errorText: errorMessage ?? validationError, // 🔥 دمج الأخطاء
+              errorText: errorMessage ?? validationError,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                  IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+                  if (showReloadButton) // 🔥 الشرط
+                    IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
                   if (tempValue?.fromValue != null || tempValue?.toValue != null)
                     IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
                 ],

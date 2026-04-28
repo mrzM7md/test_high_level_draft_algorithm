@@ -5,7 +5,6 @@ import 'package:test_high_level_draft_algorithm/simple/controllers/general/model
 import '../../base/base_filter_controller.dart';
 import '../models/dropdown_range.dart';
 
-// 🔥 التغيير المعماري: أصبحنا نستخدم DropdownRange وبداخله List لكل طرف
 class GenericMultiSearchRangeController<T> extends BaseFilterController<DropdownRange<List<T>>> {
   final String labelText;
   final String fromLabelText;
@@ -37,6 +36,7 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
     super.dependencies,
     super.isVisible,
     super.isRequired,
+    super.showReloadButton, // 🔥 تمرير الخاصية
   });
 
   @override
@@ -62,7 +62,7 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
   void onParentValueChanged() {
     _items = [];
     searchResults = [];
-    tempValue = DropdownRange<List<T>>(fromValue: [], toValue: []); // تفريغ ذكي
+    tempValue = DropdownRange<List<T>>(fromValue: [], toValue: []);
     super.onParentValueChanged();
 
     if (isVisible == null || isVisible!()) {
@@ -144,7 +144,6 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
     });
   }
 
-  // 🔥 دالة الإضافة والإزالة (مفصولة للـ From وللـ To)
   void toggleItem(T item, {required bool isFrom}) {
     final currentRange = tempValue ?? DropdownRange<List<T>>(fromValue: [], toValue: []);
     List<T> list = List.from(isFrom ? (currentRange.fromValue ?? []) : (currentRange.toValue ?? []));
@@ -195,7 +194,10 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (_isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                      IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+
+                      if (showReloadButton) // 🔥 شرط ظهور الزر
+                        IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+
                       if (hasAnyItems)
                         IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
                     ],
@@ -212,7 +214,6 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
                 ),
               ),
 
-              // 🔥 قسم اختيارات "من" (Wrap منفصل)
               if (fromList.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Text("المختارة في ($fromLabelText):", style: TextStyle(fontSize: 11, color: Colors.blue.shade700, fontWeight: FontWeight.bold)),
@@ -229,7 +230,6 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
                 ),
               ],
 
-              // 🔥 قسم اختيارات "إلى" (Wrap منفصل)
               if (toList.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Text("المختارة في ($toLabelText):", style: TextStyle(fontSize: 11, color: Colors.green.shade700, fontWeight: FontWeight.bold)),
@@ -310,7 +310,6 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
                     if (isSearching) return const Center(child: CircularProgressIndicator());
                     if (searchResults.isEmpty) return const Center(child: Text("لا توجد نتائج."));
 
-                    // التمرير الذكي للقائمة النشطة
                     final currentList = isFrom ? (tempValue?.fromValue ?? []) : (tempValue?.toValue ?? []);
 
                     return ListView.builder(

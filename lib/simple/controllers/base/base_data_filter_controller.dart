@@ -14,6 +14,7 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
     super.dependencies,
     super.isVisible,
     super.isRequired,
+    super.showReloadButton, // 🔥 تمرير المعامل للقاعدة الأم
   });
 
   @override
@@ -33,7 +34,7 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
 
   Future<void> _fetchInternal() async {
     _isLoading = true;
-    _errorMessage = null; // 🔥 تصفير الخطأ عند المحاولة الجديدة
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -50,9 +51,9 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
       _items = newData;
 
     } on FilterFetchException catch (e) {
-      _errorMessage = e.message; // 🔥 التقاط خطأ السيرفر المخصص
+      _errorMessage = e.message;
     } catch (e) {
-      _errorMessage = "عذراً، تعذر تحديث البيانات."; // خطأ عام
+      _errorMessage = "عذراً، تعذر تحديث البيانات.";
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -60,7 +61,6 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
   }
 
   Future<void> ensureDataLoaded() async {
-    // 🔥 إيقاف حلقة إعادة البناء اللانهائية إذا كان هناك خطأ
     if (_items.isNotEmpty || _isLoading || _errorMessage != null) return;
     await _fetchInternal();
   }

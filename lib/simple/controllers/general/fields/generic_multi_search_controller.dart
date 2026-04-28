@@ -1,3 +1,4 @@
+// --- generic_multi_search_controller.dart ---
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/helpers/debouncer_helper.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
@@ -9,7 +10,7 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
   final Future<List<T>> Function() initialFetchFunction;
   final Future<List<T>> Function(String query) searchFunction;
   final Widget Function(T item, bool isSelected) itemBuilder;
-  final String Function(T item) selectedItemLabel; // لاستخراج النص في الـ Chips (العناصر المختارة)
+  final String Function(T item) selectedItemLabel;
 
   List<T> _items = [];
   List<T> searchResults = [];
@@ -25,13 +26,13 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
     required this.searchFunction,
     required this.itemBuilder,
     required this.selectedItemLabel,
-    super.defaultValue, // هنا سيكون List<T>
+    super.defaultValue,
     super.dependencies,
     super.isVisible,
     super.isRequired,
+    super.showReloadButton, // 🔥 تمرير الخاصية
   });
 
-  // 🔥 تعديل ذكي لدالة التحقق: في القوائم، تعتبر القائمة الفارغة [] خطأ أيضاً!
   @override
   bool validate() {
     if (isVisible != null && !isVisible!()) {
@@ -57,7 +58,7 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
   void onParentValueChanged() {
     _items = [];
     searchResults = [];
-    tempValue = []; // تصفير المسودة كقائمة فارغة
+    tempValue = [];
     super.onParentValueChanged();
 
     if (isVisible == null || isVisible!()) {
@@ -73,7 +74,6 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
     try {
       final newData = await initialFetchFunction();
 
-      // دالة مزامنة مخصصة للقوائم (List)
       List<T>? syncList(List<T>? currentList) {
         if (currentList == null || currentList.isEmpty) return [];
         List<T> synced = [];
@@ -125,7 +125,6 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
     });
   }
 
-  // 🔥 دالة لإضافة أو إزالة العنصر من القائمة (Toggle)
   void toggleItem(T item) {
     final currentList = List<T>.from(tempValue ?? []);
     if (currentList.contains(item)) {
@@ -136,7 +135,6 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
     updateTemp(currentList.isEmpty ? null : currentList);
   }
 
-  // 🔥 دالة لحذف عنصر محدد من الـ Chips
   void removeItem(T item) {
     final currentList = List<T>.from(tempValue ?? []);
     currentList.remove(item);
@@ -157,7 +155,6 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. الحقل الرئيسي (لفتح الشاشة السفلية)
               InputDecorator(
                 decoration: InputDecoration(
                   labelText: labelText,
@@ -168,8 +165,11 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (_isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                      IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
-                      if (hasItems) // زر مسح الكل
+
+                      if (showReloadButton) // 🔥 شرط ظهور الزر
+                        IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+
+                      if (hasItems)
                         IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
                     ],
                   ),
@@ -193,29 +193,19 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
                 ),
               ),
 
-              // 2. 🔥 عرض العناصر المختارة أفقياً (Chips) تحت الحقل
               if (hasItems)
                 Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: SizedBox(
-                    height: 40, // ارتفاع التمرير الأفقي
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: tempValue!.length,
-                      itemBuilder: (context, index) {
-                        final item = tempValue![index];
-                        return Padding(
-                          padding: const EdgeInsets.only(left: 6.0), // مسافة بين الـ Chips
-                          child: Chip(
-                            label: Text(selectedItemLabel(item), style: const TextStyle(fontSize: 12)),
-                            deleteIcon: const Icon(Icons.cancel, size: 16),
-                            onDeleted: () => removeItem(item), // مسح العنصر الفردي
-                            backgroundColor: Colors.blue.shade50,
-                            side: BorderSide(color: Colors.blue.shade200),
-                          ),
-                        );
-                      },
-                    ),
+                  padding: const EdgeInsets.only(top: 10.0),
+                  child: Wrap(
+                    spacing: 6.0,
+                    runSpacing: 4.0,
+                    children: tempValue!.map((item) => Chip(
+                      label: Text(selectedItemLabel(item), style: const TextStyle(fontSize: 12)),
+                      deleteIcon: const Icon(Icons.cancel, size: 16),
+                      onDeleted: () => removeItem(item),
+                      backgroundColor: Colors.blue.shade50,
+                      side: BorderSide(color: Colors.blue.shade200),
+                    )).toList(),
                   ),
                 ),
             ],
@@ -238,14 +228,12 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
           height: MediaQuery.of(sheetContext).size.height * 0.75,
           child: Column(
             children: [
-              // حقل البحث
               TextField(
                 decoration: const InputDecoration(labelText: "بحث...", prefixIcon: Icon(Icons.search), border: OutlineInputBorder()),
                 onChanged: onSearchQueryChanged,
               ),
               const SizedBox(height: 10),
 
-              // قائمة النتائج
               Expanded(
                 child: ListenableBuilder(
                   listenable: this,
@@ -257,11 +245,10 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
                       itemCount: searchResults.length,
                       itemBuilder: (context, index) {
                         final item = searchResults[index];
-                        // التحقق مما إذا كان العنصر موجوداً في القائمة المؤقتة
                         final isSelected = tempValue?.contains(item) ?? false;
 
                         return InkWell(
-                          onTap: () => toggleItem(item), // 🔥 إضافة أو إزالة بدون إغلاق الشاشة
+                          onTap: () => toggleItem(item),
                           child: itemBuilder(item, isSelected),
                         );
                       },
@@ -270,13 +257,12 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
                 ),
               ),
 
-              // 🔥 زر تأكيد الاختيار أسفل الشاشة
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.only(top: 10, bottom: 20),
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
-                  onPressed: () => Navigator.pop(sheetContext), // فقط إغلاق الشاشة
+                  onPressed: () => Navigator.pop(sheetContext),
                   child: ListenableBuilder(
                       listenable: this,
                       builder: (context, _) {

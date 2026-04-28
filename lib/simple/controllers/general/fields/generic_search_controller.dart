@@ -1,4 +1,3 @@
-// --- generic_search_controller.dart ---
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/helpers/debouncer_helper.dart';
 import '../../base/base_data_filter_controller.dart';
@@ -26,6 +25,7 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
     super.dependencies,
     super.isVisible,
     super.isRequired,
+    super.showReloadButton, // 🔥 تمرير الخاصية
   });
 
   @override
@@ -78,13 +78,14 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
             decoration: InputDecoration(
               labelText: labelText,
               border: const OutlineInputBorder(),
-              errorText: errorMessage ?? validationError, // 🔥 دمج الخطأين
+              errorText: errorMessage ?? validationError,
               contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               suffixIcon: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                  IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+                  if (showReloadButton) // 🔥 إخفاء/إظهار الزر
+                    IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
                   if (tempValue != null) IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
                   const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
                 ],

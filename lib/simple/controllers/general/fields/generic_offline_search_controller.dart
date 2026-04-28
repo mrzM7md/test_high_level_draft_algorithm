@@ -24,6 +24,7 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
     super.dependencies,
     super.isVisible,
     super.isRequired,
+    super.showReloadButton, // 🔥 تمرير الخاصية
   });
 
   @override
@@ -40,7 +41,6 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
       searchResults = List.from(items);
     } else {
       final lowerQuery = query.toLowerCase().trim();
-      // فلترة القائمة وإرجاع نتائج فارغة إذا لم يوجد تطابق
       searchResults = items.where((item) => localFilterFunction(item, lowerQuery)).toList();
     }
     notifyListeners();
@@ -48,7 +48,7 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
 
   @override
   Widget buildFilterWidget(BuildContext context) {
-    ensureDataLoaded(); // 🔥 تم إزالة الكود الخاطئ من هنا بالكامل
+    ensureDataLoaded();
 
     return ListenableBuilder(
       listenable: this,
@@ -65,7 +65,10 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                  IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+
+                  if (showReloadButton) // 🔥 شرط ظهور الزر
+                    IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+
                   if (tempValue != null) IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
                   const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
                 ],
@@ -95,7 +98,6 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
   }
 
   void _openSearchSheet(BuildContext context) {
-    // 🔥 التهيئة الصحيحة: عند فتح الشاشة نملأ النتائج بكل البيانات لكي يراها المستخدم قبل أن يبحث
     searchResults = List.from(items);
 
     showModalBottomSheet(
@@ -114,7 +116,7 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
                     border: OutlineInputBorder()
                 ),
                 onChanged: onSearchQueryChanged,
-                autofocus: true, // يفتح لوحة المفاتيح تلقائياً
+                autofocus: true,
               ),
               const SizedBox(height: 10),
 
@@ -122,7 +124,6 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
                 child: ListenableBuilder(
                   listenable: this,
                   builder: (context, _) {
-                    // 🔥 الآن إذا كانت النتائج فارغة، ستظهر هذه الرسالة بكل ثقة!
                     if (searchResults.isEmpty) return const Center(child: Text("لا توجد نتائج."));
 
                     return ListView.builder(

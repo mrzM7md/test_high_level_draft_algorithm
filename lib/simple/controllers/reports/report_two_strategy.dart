@@ -182,7 +182,7 @@ class ReportTwoStrategy implements ReportStrategy<String> {
     _offlineMultiBranchSearch = GenericMultiOfflineSearchController<CustomerModel>(
       labelText: "تحديد الفروع المعنية (بحث سريع)",
       hintText: "اضغط لاختيار فروع...",
-
+      showReloadButton: false,
       // جلب البيانات مرة واحدة فقط
       fetchAllFunction: repo.fetchCustomers,
 

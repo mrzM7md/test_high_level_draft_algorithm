@@ -10,18 +10,19 @@ abstract class BaseFilterController<T> extends ChangeNotifier {
   final bool Function()? isVisible;
 
   final bool isRequired;
+  final bool showReloadButton; // 🔥 إضافة المعامل الجديد
   String? validationError;
 
   List<dynamic>? _lastDependencyValues;
 
-  // 🔥 الحل الجذري هنا: نستقبل isRequired كقيمة قد تكون null (بسبب أخطاء الوراثة)
-  // ونقوم بإنقاذها وتحويلها إلى false في قائمة التهيئة (Initializer List)
   BaseFilterController({
     this.defaultValue,
     this.dependencies,
     this.isVisible,
-    bool? isRequired, // 1. نجعلها تقبل Null مؤقتاً
-  }) : isRequired = isRequired ?? false { // 2. نؤمنها هنا بأمان تام!
+    bool? isRequired,
+    bool? showReloadButton, // 🔥 نستقبله كـ Nullable
+  }) : isRequired = isRequired ?? false,
+        showReloadButton = showReloadButton ?? true { // 🔥 نؤمنه هنا بأمان ليكون true افتراضياً
     appliedValue = defaultValue;
     tempValue = defaultValue;
 

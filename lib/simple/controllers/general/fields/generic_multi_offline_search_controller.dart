@@ -6,13 +6,9 @@ import '../../base/base_filter_controller.dart';
 class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T>> {
   final String labelText;
   final String hintText;
-  
-  // دالة لجلب البيانات دفعة واحدة (تستدعى مرة واحدة فقط)
+
   final Future<List<T>> Function() fetchAllFunction;
-  
-  // 🔥 دالة البحث المحلي (بدون انتظار السيرفر)
   final bool Function(T item, String query) localFilterFunction;
-  
   final Widget Function(T item, bool isSelected) itemBuilder;
   final String Function(T item) selectedItemLabel;
 
@@ -32,9 +28,9 @@ class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T
     super.dependencies,
     super.isVisible,
     super.isRequired,
+    super.showReloadButton, // 🔥 تمرير الخاصية
   });
 
-  // 🔥 التحقق: القائمة الفارغة تعتبر خطأ
   @override
   bool validate() {
     if (isVisible != null && !isVisible!()) {
@@ -84,7 +80,6 @@ class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T
             synced.add(newData.firstWhere((e) => e == item));
           } else {
             synced.add(item);
-            // نحتفظ بالعنصر في القائمة الرئيسية حتى لا يختفي
             newData.insert(0, item);
           }
         }
@@ -106,7 +101,6 @@ class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T
     }
   }
 
-  // 🔥 البحث اللحظي المحلي (بدون Debouncer)
   void onSearchQueryChanged(String query) {
     if (query.trim().isEmpty) {
       searchResults = List.from(_items);
@@ -157,7 +151,10 @@ class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (_isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                      IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+
+                      if (showReloadButton) // 🔥 شرط ظهور الزر
+                        IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+
                       if (hasItems)
                         IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
                     ],
@@ -182,7 +179,6 @@ class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T
                 ),
               ),
 
-              // 🔥 عرض العناصر المختارة كـ Wrap يملأ الأسطر بذكاء
               if (hasItems)
                 Padding(
                   padding: const EdgeInsets.only(top: 10.0),
@@ -206,7 +202,6 @@ class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T
   }
 
   void _openSearchSheet(BuildContext context) {
-    // 🔥 التهيئة قبل فتح الشاشة
     searchResults = List.from(_items);
 
     showModalBottomSheet(
@@ -220,8 +215,8 @@ class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T
             children: [
               TextField(
                 decoration: const InputDecoration(labelText: "بحث سريع...", prefixIcon: Icon(Icons.search), border: OutlineInputBorder()),
-                onChanged: onSearchQueryChanged, // فلترة فورية بدون تأخير
-                autofocus: true, // لفتح الكيبورد تلقائياً
+                onChanged: onSearchQueryChanged,
+                autofocus: true,
               ),
               const SizedBox(height: 10),
 
@@ -229,7 +224,6 @@ class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T
                 child: ListenableBuilder(
                   listenable: this,
                   builder: (context, _) {
-                    // لا يوجد مؤشر تحميل لأن العملية في الذاكرة ومباشرة
                     if (searchResults.isEmpty) return const Center(child: Text("لا توجد نتائج."));
 
                     return ListView.builder(
