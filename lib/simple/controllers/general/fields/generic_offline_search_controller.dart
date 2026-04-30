@@ -1,4 +1,3 @@
-// --- generic_offline_search_controller.dart ---
 import 'package:flutter/material.dart';
 import '../../base/base_data_filter_controller.dart';
 
@@ -20,11 +19,12 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
     required this.localFilterFunction,
     required this.itemBuilder,
     required this.selectedItemLabel,
+    super.defaultSelectionBuilder,
     super.defaultValue,
     super.dependencies,
     super.isVisible,
     super.isRequired,
-    super.showReloadButton, // 🔥 تمرير الخاصية
+    super.showReloadButton,
   });
 
   @override

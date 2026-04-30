@@ -21,6 +21,7 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
     required this.searchFunction,
     required this.itemBuilder,
     required this.selectedItemLabel,
+    super.defaultSelectionBuilder,
     super.defaultValue,
     super.dependencies,
     super.isVisible,

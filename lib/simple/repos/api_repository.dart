@@ -45,7 +45,7 @@ class ApiRepository {
     ];
   }
 
-  Future<List<CustomerModel>> fetchRelatedCustomers(String parentId) async {
+  Future<List<CustomerModel>> fetchRelatedCustomers(String? parentId) async {
     await Future.delayed(const Duration(seconds: 1));
     if (parentId == "1") {
       return [

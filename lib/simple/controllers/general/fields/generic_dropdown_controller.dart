@@ -10,11 +10,12 @@ class GenericDropdownController<T> extends BaseDataFilterController<T> {
     required this.labelText,
     required this.fetchFunction,
     required this.itemLabelBuilder,
+    super.defaultSelectionBuilder,
     super.defaultValue,
     super.dependencies,
     super.isVisible,
     super.isRequired,
-    super.showReloadButton, // 🔥 تمرير الخاصية
+    super.showReloadButton,
   });
 
   @override
