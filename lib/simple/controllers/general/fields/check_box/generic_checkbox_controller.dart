@@ -7,8 +7,16 @@ class GenericCheckboxController extends BaseFilterController<bool> {
     super.isVisible,
     super.isRequired,
   }) : super(defaultValue: defaultValue) {
-    tempValue ??= false;
-    appliedValue ??= false;
+    tempValue ??= defaultValue;
+    appliedValue ??= defaultValue;
+  }
+
+  @override
+  void onParentValueChanged() {
+    super.onParentValueChanged();
+    if (tempValue == null) {
+      updateTemp(defaultValue ?? false);
+    }
   }
 
   @override

@@ -70,7 +70,101 @@ class _ReportTwoScreenState extends State<ReportTwoScreen> {
               GenericCheckboxWidget(
                 controller: widget.strategy.hideZeroBalancesFilter,
                 labelText: "إخفاء الأرصدة الصفرية من التقرير",
-              ),
+                customBuilder: (context, isChecked, controller) {
+                  final theme = Theme.of(context);
+
+                  return InkWell(
+                    // 🚀 إعطاء الأمر للكنترولر عند الضغط
+                    onTap: () => controller.updateTemp(!isChecked),
+                    borderRadius: BorderRadius.circular(12),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        // تغيير لون الخلفية بذكاء عند التفعيل
+                        color: isChecked
+                            ? theme.colorScheme.primaryContainer.withOpacity(0.4)
+                            : theme.cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isChecked
+                              ? theme.colorScheme.primary
+                              : theme.dividerColor.withOpacity(0.5),
+                          width: 1.5,
+                        ),
+                        // إضافة ظل خفيف جداً يبرز العنصر عند التفعيل
+                        boxShadow: isChecked
+                            ? [
+                          BoxShadow(
+                            color: theme.colorScheme.primary.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          )
+                        ]
+                            : [],
+                      ),
+                      child: Row(
+                        children: [
+                          // 🚀 أيقونة تفاعلية تتغير برسم متحرك
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            transitionBuilder: (child, animation) =>
+                                RotationTransition(turns: animation, child: ScaleTransition(scale: animation, child: child)),
+                            child: Icon(
+                              isChecked ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                              key: ValueKey<bool>(isChecked),
+                              color: isChecked ? theme.colorScheme.primary : Colors.grey.shade500,
+                              size: 26,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+
+                          // 🚀 النص الذي يتفاعل مع الحالة
+                          Expanded(
+                            child: Text(
+                              "إخفاء الأرصدة الصفرية من التقرير",
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: isChecked ? FontWeight.w700 : FontWeight.w500,
+                                color: isChecked ? theme.colorScheme.primary : theme.textTheme.bodyLarge?.color,
+                              ),
+                            ),
+                          ),
+
+                          // 🚀 مفتاح تبديل (Switch) عصري ومخصص ليدعم اللغة العربية (RTL)
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: 44,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: isChecked ? theme.colorScheme.primary : Colors.grey.shade300,
+                            ),
+                            child: AnimatedAlign(
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeOutBack, // حركة ارتدادية لطيفة
+                              // AlignmentDirectional يضمن أن الحركة صحيحة في العربي والإنجليزي
+                              alignment: isChecked ? AlignmentDirectional.centerEnd : AlignmentDirectional.centerStart,
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 2),
+                                width: 20,
+                                height: 20,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Colors.white,
+                                  boxShadow: [
+                                    BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2))
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              )
             ],
           ),
 
