@@ -5,7 +5,7 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
   final String labelText;
   final String hintText;
 
-  final Future<List<T>> Function() fetchAllFunction;
+  final Future<List<T>> Function({bool forceReload}) fetchAllFunction;
   final bool Function(T item, String query) localFilterFunction;
   final Widget Function(T item, bool isSelected) itemBuilder;
   final String Function(T item) selectedItemLabel;
@@ -28,7 +28,7 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
   });
 
   @override
-  Future<List<T>> fetchDataFromServer() => fetchAllFunction();
+  Future<List<T>> fetchDataFromServer({bool forceReload = false}) => fetchAllFunction(forceReload: forceReload);
 
   @override
   void onParentValueChanged() {
@@ -66,8 +66,9 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
                 children: [
                   if (isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
 
-                  if (showReloadButton) // 🔥 شرط ظهور الزر
-                    IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+                  if (showReloadButton)
+                  // 3. 🔥 الإجبار عند النقر
+                    IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData(forceReload: true)),
 
                   if (tempValue != null) IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
                   const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),

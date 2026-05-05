@@ -30,21 +30,22 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
     super.onParentValueChanged();
 
     if (isVisible == null || isVisible!()) {
-      refreshData();
+      refreshData(forceReload: false);
     }
   }
 
-  Future<void> refreshData() async {
-    await _fetchInternal();
+  Future<void> refreshData({bool forceReload = false}) async {
+    await _fetchInternal(forceReload: forceReload);
   }
 
-  Future<void> _fetchInternal() async {
+  Future<void> _fetchInternal({bool forceReload = false}) async {
     _isLoading = true;
     _errorMessage = null; // تصفير الخطأ عند المحاولة الجديدة
     notifyListeners();
 
     try {
-      final newData = await fetchDataFromServer();
+      // 3. 🔥 تمرير أمر الإجبار لدالة الجلب الفعلي التي ستُبنى في الكنترولرات الابنة
+      final newData = await fetchDataFromServer(forceReload: forceReload);
 
       // دالة المزامنة المعتادة
       T? syncItem(T? currentItem) {
@@ -57,7 +58,7 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
       appliedValue = syncItem(appliedValue);
       _items = newData;
 
-      // 🔥 السحر هنا: تطبيق القيمة الافتراضية الذكية إذا لم يكن هناك قيمة مختارة
+      // السحر هنا: تطبيق القيمة الافتراضية الذكية إذا لم يكن هناك قيمة مختارة
       if (tempValue == null && defaultSelectionBuilder != null) {
         tempValue = defaultSelectionBuilder!(_items);
 
@@ -83,5 +84,6 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
     await _fetchInternal();
   }
 
-  Future<List<T>> fetchDataFromServer();
+  // 4. 🔥 إضافة المعامل لتوقيع الدالة التجريدية لكي تلتزم به كل الكنترولرات
+  Future<List<T>> fetchDataFromServer({bool forceReload = false});
 }

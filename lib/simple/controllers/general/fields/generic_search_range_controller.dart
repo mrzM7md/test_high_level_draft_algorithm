@@ -10,7 +10,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
   final String toLabelText;
   final String hintText;
 
-  final Future<List<T>> Function() initialFetchFunction;
+  final Future<List<T>> Function({bool forceReload}) initialFetchFunction;
   final Future<List<T>> Function(String query) searchFunction;
   final String Function(T item) selectedItemLabel;
   final Widget Function(T item, bool isSelected) itemBuilder;
@@ -35,7 +35,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
     super.dependencies,
     super.isVisible,
     super.isRequired,
-    super.showReloadButton, // 🔥 تمرير
+    super.showReloadButton,
   });
 
   void onSearchQueryChanged(String query) {
@@ -69,17 +69,19 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
     super.onParentValueChanged();
 
     if (isVisible == null || isVisible!()) {
-      refreshData();
+      refreshData(forceReload: false); // 2. 🔥 التحديث التلقائي بدون إجبار
     }
   }
 
-  Future<void> refreshData() async {
+  // 3. 🔥 إضافة معامل الإجبار
+  Future<void> refreshData({bool forceReload = false}) async {
     _isLoading = true;
     errorMessage = null;
     notifyListeners();
 
     try {
-      final newData = await initialFetchFunction();
+      // 4. 🔥 تمرير الأمر للدالة
+      final newData = await initialFetchFunction(forceReload: forceReload);
 
       DropdownRange<T>? syncRange(DropdownRange<T>? currentRange) {
         if (currentRange == null) return null;
@@ -121,7 +123,7 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
 
   Future<void> ensureDataLoaded() async {
     if (_items.isNotEmpty || _isLoading || errorMessage != null) return;
-    await refreshData();
+    await refreshData(forceReload: false);
   }
 
   @override
@@ -143,8 +145,11 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                  if (showReloadButton) // 🔥 الشرط
-                    IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+
+                  if (showReloadButton)
+                  // 5. 🔥 تفعيل الإجبار من خلال الزر اليدوي
+                    IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData(forceReload: true)),
+
                   if (tempValue?.fromValue != null || tempValue?.toValue != null)
                     IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
                 ],

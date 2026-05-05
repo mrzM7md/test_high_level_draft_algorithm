@@ -1,4 +1,3 @@
-// --- generic_dropdown_range_controller.dart ---
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/filter_fetch_exception.dart';
 import '../../base/base_filter_controller.dart';
@@ -8,7 +7,7 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
   final String labelText;
   final String fromLabelText;
   final String toLabelText;
-  final Future<List<T>> Function() fetchFunction;
+  final Future<List<T>> Function({bool forceReload}) fetchFunction;
   final String Function(T item) itemLabelBuilder;
 
   List<T> _items = [];
@@ -25,7 +24,7 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
     super.dependencies,
     super.isVisible,
     super.isRequired,
-    super.showReloadButton, // 🔥 تمرير
+    super.showReloadButton,
   });
 
   @override
@@ -35,17 +34,17 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
     super.onParentValueChanged();
 
     if (isVisible == null || isVisible!()) {
-      refreshData(isInitialLoad: true);
+      refreshData(forceReload: false); // لا نجبر التحديث التلقائي
     }
   }
 
-  Future<void> refreshData({bool isInitialLoad = false}) async {
+  Future<void> refreshData({bool forceReload = false}) async {
     _isLoading = true;
     errorMessage = null;
     notifyListeners();
 
     try {
-      final newData = await fetchFunction();
+      final newData = await fetchFunction(forceReload: forceReload);
 
       DropdownRange<T>? syncWithNewList(DropdownRange<T>? currentRange) {
         if (currentRange == null) return null;
@@ -86,7 +85,7 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
 
   Future<void> ensureDataLoaded() async {
     if (_items.isNotEmpty || _isLoading || errorMessage != null) return;
-    await refreshData(isInitialLoad: true);
+    await refreshData(forceReload: false);
   }
 
   @override
@@ -108,8 +107,9 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (_isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                  if (showReloadButton) // 🔥 الشرط
-                    IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+                  if (showReloadButton)
+                  // 4. 🔥 تفعيل الإجبار عند الضغط اليدوي
+                    IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData(forceReload: true)),
                   if (tempValue?.fromValue != null || tempValue?.toValue != null)
                     IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
                 ],

@@ -3,7 +3,7 @@ import '../../base/base_data_filter_controller.dart';
 
 class GenericDropdownController<T> extends BaseDataFilterController<T> {
   final String labelText;
-  final Future<List<T>> Function() fetchFunction;
+  final Future<List<T>> Function({bool forceReload}) fetchFunction;
   final String Function(T item) itemLabelBuilder;
 
   GenericDropdownController({
@@ -18,8 +18,9 @@ class GenericDropdownController<T> extends BaseDataFilterController<T> {
     super.showReloadButton,
   });
 
+  // 2. 🔥 استقبال الأمر وتمريره لدالة الجلب الخاصة بالمستخدم
   @override
-  Future<List<T>> fetchDataFromServer() => fetchFunction();
+  Future<List<T>> fetchDataFromServer({bool forceReload = false}) => fetchFunction(forceReload: forceReload);
 
   @override
   Widget buildFilterWidget(BuildContext context) {
@@ -39,8 +40,8 @@ class GenericDropdownController<T> extends BaseDataFilterController<T> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                  if (showReloadButton) // 🔥 الشرط الجديد لإخفاء/إظهار الزر
-                    IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+                  if (showReloadButton)
+                    IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData(forceReload: true)),
                   if (tempValue != null) IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
                 ],
               ),

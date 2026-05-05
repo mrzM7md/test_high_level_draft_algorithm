@@ -28,14 +28,13 @@ class ReportOneStrategy implements ReportStrategy<String> {
   late final GenericDropdownRangeController<CategoryModel> _categoryRangeFilter;
 
   // 3. فلاتر العملاء (مفرد ونطاق)
-  late final GenericSearchController<CustomerModel> _customerFilter; // الحقل الجديد
+  late final GenericSearchController<CustomerModel> _customerFilter;
   late final GenericSearchRangeController<CustomerModel> _customerRangeFilter;
 
   late final GenericTextController _noteFilter;
   late final GenericNumberController _amountFilter;
 
   ReportOneStrategy() {
-    // بناء فلاتر التاريخ
     _dateRangeFilter = GenericDateRangeController(
       labelText: "فترة الفواتير",
       fromLabelText: "من تاريخ",
@@ -52,10 +51,10 @@ class ReportOneStrategy implements ReportStrategy<String> {
       defaultValue: DateTime.now(),
     );
 
-    // بناء فلاتر التصنيفات
     _categoryFilter = GenericDropdownController(
       labelText: "اختر التصنيف",
-      fetchFunction: () => repo.fetchCategories(),
+      // 🔥 تمرير المُعامل
+      fetchFunction: ({bool forceReload = false}) => repo.fetchCategories(),
       itemLabelBuilder: (cat) => cat.name,
     );
 
@@ -63,15 +62,16 @@ class ReportOneStrategy implements ReportStrategy<String> {
       labelText: "نطاق التصنيفات",
       fromLabelText: "من تصنيف",
       toLabelText: "إلى تصنيف",
-      fetchFunction: () => repo.fetchCategories(),
+      // 🔥 تمرير المُعامل
+      fetchFunction: ({bool forceReload = false}) => repo.fetchCategories(),
       itemLabelBuilder: (cat) => cat.name,
     );
 
-    // بناء فلتر البحث المفرد للعملاء
     _customerFilter = GenericSearchController<CustomerModel>(
       labelText: "العميل (بحث مفرد)",
       hintText: "اضغط للبحث عن عميل...",
-      initialFetchFunction: () => repo.fetchCustomers(),
+      // 🔥 تمرير المُعامل
+      initialFetchFunction: ({bool forceReload = false}) => repo.fetchCustomers(),
       searchFunction: (query) => repo.searchCustomers(query),
       selectedItemLabel: (customer) => customer.name,
       itemBuilder: (customer, isSelected) {
@@ -89,13 +89,13 @@ class ReportOneStrategy implements ReportStrategy<String> {
       },
     );
 
-    // بناء فلتر نطاق البحث للعملاء
     _customerRangeFilter = GenericSearchRangeController<CustomerModel>(
       labelText: "نطاق العملاء (أونلاين)",
       fromLabelText: "من عميل",
       toLabelText: "إلى عميل",
       hintText: "اختر...",
-      initialFetchFunction: () => repo.fetchCustomers(),
+      // 🔥 تمرير المُعامل
+      initialFetchFunction: ({bool forceReload = false}) => repo.fetchCustomers(),
       searchFunction: (query) => repo.searchCustomers(query),
       selectedItemLabel: (customer) => customer.name,
       itemBuilder: (customer, isSelected) {
@@ -121,7 +121,7 @@ class ReportOneStrategy implements ReportStrategy<String> {
     _amountFilter = GenericNumberController(
       labelText: "مبلغ الفاتورة (أكبر من)",
       hintText: "0.0",
-      isRequired: true, // يمكن جعله إجبارياً أيضاً!
+      isRequired: true,
     );
   }
 
@@ -131,7 +131,7 @@ class ReportOneStrategy implements ReportStrategy<String> {
     _singleDateFilter,
     _categoryFilter,
     _categoryRangeFilter,
-    _customerFilter, // تم وضعه فوق حقل النطاق
+    _customerFilter,
     _customerRangeFilter,
     _noteFilter,
     _amountFilter
@@ -143,7 +143,7 @@ class ReportOneStrategy implements ReportStrategy<String> {
     final singleDate = _singleDateFilter.appliedValue;
     final cat = _categoryFilter.appliedValue;
     final catRange = _categoryRangeFilter.appliedValue;
-    final cust = _customerFilter.appliedValue; // القيمة المعتمدة للبحث المفرد
+    final cust = _customerFilter.appliedValue;
     final cstRange = _customerRangeFilter.appliedValue;
     final noteFilter = _noteFilter.appliedValue;
     final amountFilter = _amountFilter.appliedValue;

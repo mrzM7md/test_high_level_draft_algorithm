@@ -1,4 +1,3 @@
-// --- generic_multi_search_range_controller.dart ---
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/helpers/debouncer_helper.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/filter_fetch_exception.dart';
@@ -11,7 +10,7 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
   final String toLabelText;
   final String hintText;
 
-  final Future<List<T>> Function() initialFetchFunction;
+  final Future<List<T>> Function({bool forceReload}) initialFetchFunction;
   final Future<List<T>> Function(String query) searchFunction;
   final String Function(T item) selectedItemLabel;
   final Widget Function(T item, bool isSelected) itemBuilder;
@@ -36,7 +35,7 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
     super.dependencies,
     super.isVisible,
     super.isRequired,
-    super.showReloadButton, // 🔥 تمرير الخاصية
+    super.showReloadButton,
   });
 
   @override
@@ -66,17 +65,17 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
     super.onParentValueChanged();
 
     if (isVisible == null || isVisible!()) {
-      refreshData();
+      refreshData(forceReload: false); // 2. 🔥 التحديث التلقائي يستفيد من الكاش
     }
   }
 
-  Future<void> refreshData() async {
+  Future<void> refreshData({bool forceReload = false}) async {
     _isLoading = true;
     errorMessage = null;
     notifyListeners();
 
     try {
-      final newData = await initialFetchFunction();
+      final newData = await initialFetchFunction(forceReload: forceReload);
 
       List<T>? syncList(List<T>? currentList) {
         if (currentList == null || currentList.isEmpty) return [];
@@ -119,7 +118,7 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
 
   Future<void> ensureDataLoaded() async {
     if (_items.isNotEmpty || _isLoading || errorMessage != null) return;
-    await refreshData();
+    await refreshData(forceReload: false);
   }
 
   void onSearchQueryChanged(String query) {
@@ -195,8 +194,9 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
                     children: [
                       if (_isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
 
-                      if (showReloadButton) // 🔥 شرط ظهور الزر
-                        IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+                      if (showReloadButton)
+                      // 5. 🔥 تفعيل الإجبار عند التحديث اليدوي
+                        IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData(forceReload: true)),
 
                       if (hasAnyItems)
                         IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),

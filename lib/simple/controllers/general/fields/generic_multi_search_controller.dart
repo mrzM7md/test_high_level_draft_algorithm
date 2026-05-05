@@ -1,4 +1,3 @@
-// --- generic_multi_search_controller.dart ---
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/helpers/debouncer_helper.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
@@ -7,8 +6,11 @@ import 'package:test_high_level_draft_algorithm/simple/controllers/general/model
 class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
   final String labelText;
   final String hintText;
-  final Future<List<T>> Function() initialFetchFunction;
+
+  // 1. 🔥 تعديل التوقيع للدالة المبدئية فقط
+  final Future<List<T>> Function({bool forceReload}) initialFetchFunction;
   final Future<List<T>> Function(String query) searchFunction;
+
   final Widget Function(T item, bool isSelected) itemBuilder;
   final String Function(T item) selectedItemLabel;
 
@@ -30,7 +32,7 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
     super.dependencies,
     super.isVisible,
     super.isRequired,
-    super.showReloadButton, // 🔥 تمرير الخاصية
+    super.showReloadButton,
   });
 
   @override
@@ -62,17 +64,19 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
     super.onParentValueChanged();
 
     if (isVisible == null || isVisible!()) {
-      refreshData();
+      refreshData(forceReload: false);
     }
   }
 
-  Future<void> refreshData() async {
+  // 2. 🔥 إضافة معامل الإجبار
+  Future<void> refreshData({bool forceReload = false}) async {
     _isLoading = true;
     errorMessage = null;
     notifyListeners();
 
     try {
-      final newData = await initialFetchFunction();
+      // 3. 🔥 تمرير الأمر للدالة
+      final newData = await initialFetchFunction(forceReload: forceReload);
 
       List<T>? syncList(List<T>? currentList) {
         if (currentList == null || currentList.isEmpty) return [];
@@ -166,8 +170,9 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
                     children: [
                       if (_isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
 
-                      if (showReloadButton) // 🔥 شرط ظهور الزر
-                        IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData()),
+                      if (showReloadButton)
+                      // 4. 🔥 الإجبار عند النقر
+                        IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => refreshData(forceReload: true)),
 
                       if (hasItems)
                         IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => clear()),
