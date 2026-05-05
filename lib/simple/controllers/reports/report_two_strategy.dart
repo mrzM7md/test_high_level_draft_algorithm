@@ -1,15 +1,16 @@
-import 'package:flutter/material.dart';
+// 🚫 تم حذف استيراد flutter/material.dart نهائياً!
+
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/containers/filter_group_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_checkbox_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_range_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_multi_offline_search_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_multi_search_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_multi_search_range_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_offline_search_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/check_box/generic_checkbox_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/dropdown/generic_dropdown_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/dropdown_range/generic_dropdown_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_multi_offline_search/generic_multi_offline_search_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_multi_search/generic_multi_search_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_multi_search_range/generic_multi_search_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_offline_search/generic_offline_search_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search/generic_search_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_range/generic_search_range_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/models/category_model.dart';
 import 'package:test_high_level_draft_algorithm/simple/models/customer_model.dart';
 import 'package:test_high_level_draft_algorithm/simple/repos/api_repository.dart';
@@ -20,202 +21,126 @@ class ReportTwoStrategy implements ReportStrategy<String> {
 
   final ApiRepository repo = ApiRepository();
 
-  late final GenericDropdownController<CategoryModel> _mainCategoryFilter;
-  late final GenericDropdownRangeController<CategoryModel> _subCategoryRangeFilter;
-  late final GenericSearchController<CustomerModel> _mainCustomerSearch;
-  late final GenericSearchRangeController<CustomerModel> _customerRangeSearch;
-  late final GenericMultiSearchController<CustomerModel> _multiCustomerSearch;
-  late final GenericMultiSearchRangeController<CustomerModel> _multiRangeCustomerSearch;
-  late final GenericOfflineSearchController<CustomerModel> _offlineCustomerSearch;
-  late final GenericMultiOfflineSearchController<CustomerModel> _offlineMultiBranchSearch;
-  late final GenericCheckboxController _hideZeroBalancesFilter;
-  late final FilterGroupController _advancedSettingsGroup;
+  late final GenericDropdownController<CategoryModel> mainCategoryFilter;
+  late final GenericDropdownRangeController<CategoryModel> subCategoryRangeFilter;
+  late final GenericSearchController<CustomerModel> mainCustomerSearch;
+  late final GenericSearchRangeController<CustomerModel> customerRangeSearch;
+  late final GenericMultiSearchController<CustomerModel> multiCustomerSearch;
+  late final GenericMultiSearchRangeController<CustomerModel> multiRangeCustomerSearch;
+  late final GenericOfflineSearchController<CustomerModel> offlineCustomerSearch;
+  late final GenericMultiOfflineSearchController<CustomerModel> offlineMultiBranchSearch;
+  late final GenericCheckboxController hideZeroBalancesFilter;
+  late final FilterGroupController advancedSettingsGroup;
 
   ReportTwoStrategy() {
-    _mainCategoryFilter = GenericDropdownController<CategoryModel>(
-      labelText: "التصنيف الرئيسي",
-      // 🔥 تمرير
+    mainCategoryFilter = GenericDropdownController<CategoryModel>(
       fetchFunction: ({bool forceReload = false}) => repo.fetchCategories(),
       isRequired: true,
-      itemLabelBuilder: (category) => category.name,
     );
 
-    _subCategoryRangeFilter = GenericDropdownRangeController<CategoryModel>(
-      labelText: "نطاق التصنيفات الفرعية",
-      fromLabelText: "من فرعي",
-      toLabelText: "إلى فرعي",
-      // 🔥 تمرير
-      fetchFunction: ({bool forceReload = false}) => repo.fetchSubCategories(_mainCategoryFilter.tempValue!.id),
-      itemLabelBuilder: (category) => category.name,
-      dependencies: [_mainCategoryFilter],
+    subCategoryRangeFilter = GenericDropdownRangeController<CategoryModel>(
+      // 🛠️ تم الإصلاح: الحماية من الـ Null Pointer Exception
+      fetchFunction: ({bool forceReload = false}) async {
+        final parentCat = mainCategoryFilter.tempValue;
+        if (parentCat == null) return []; // أرجع قائمة فارغة في حال عدم وجود أب
+        return repo.fetchSubCategories(parentCat.id);
+      },
+      dependencies: [mainCategoryFilter],
       isVisible: () {
-        final parentValue = _mainCategoryFilter.tempValue;
-        final parentItems = _mainCategoryFilter.items;
+        final parentValue = mainCategoryFilter.tempValue;
+        final parentItems = mainCategoryFilter.items;
         if (parentValue == null || parentItems.isEmpty) return false;
         return parentValue != parentItems.last;
       },
     );
 
-    _mainCustomerSearch = GenericSearchController<CustomerModel>(
-      labelText: "اختيار العميل الرئيسي",
-      hintText: "ابحث عن العميل الأب...",
-      // 🔥 تمرير
+    mainCustomerSearch = GenericSearchController<CustomerModel>(
       initialFetchFunction: ({bool forceReload = false}) => repo.fetchCustomers(),
       searchFunction: (query) => repo.searchCustomers(query),
-      selectedItemLabel: (customer) => customer.name,
-      itemBuilder: (customer, isSelected) => ListTile(
-        selected: isSelected,
-        title: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(customer.phone),
-        leading: const CircleAvatar(child: Icon(Icons.person)),
-        trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
-      ),
     );
 
-    _customerRangeSearch = GenericSearchRangeController<CustomerModel>(
-      labelText: "نطاق الفروع/المناديب",
-      fromLabelText: "من فرع",
-      toLabelText: "إلى فرع",
-      hintText: "بحث...",
-      // 🔥 تمرير
-      initialFetchFunction: ({bool forceReload = false}) => repo.fetchRelatedCustomers(_mainCustomerSearch.tempValue!.id),
+    customerRangeSearch = GenericSearchRangeController<CustomerModel>(
+      // 🛠️ تم الإصلاح: الحماية للعميل الأب أيضاً
+      initialFetchFunction: ({bool forceReload = false}) async {
+        final parentCust = mainCustomerSearch.tempValue;
+        if (parentCust == null) return [];
+        return repo.fetchRelatedCustomers(parentCust.id);
+      },
       searchFunction: (query) => repo.searchCustomers(query),
-      selectedItemLabel: (customer) => customer.name,
-      itemBuilder: (customer, isSelected) => ListTile(
-        selected: isSelected,
-        title: Text(customer.name),
-        leading: const Icon(Icons.location_on),
-        trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
-      ),
-      dependencies: [_mainCustomerSearch],
-      isVisible: () => _mainCustomerSearch.tempValue != null,
+      dependencies: [mainCustomerSearch],
+      isVisible: () => mainCustomerSearch.tempValue != null,
     );
 
-    _multiCustomerSearch = GenericMultiSearchController<CustomerModel>(
-      labelText: "تحديد الفروع أو المناديب",
-      hintText: "اضغط لاختيار أكثر من فرع...",
-      // 🔥 إذا كانت repo.fetchCustomers تُعرّف هكذا `fetchCustomers({bool forceReload = false})`
-      // فيمكنك إبقاء الاختصار `initialFetchFunction: repo.fetchCustomers`,
-      // وإلا نكتبها بشكل صريح لتوافق التوقيع الجديد:
+    multiCustomerSearch = GenericMultiSearchController<CustomerModel>(
       initialFetchFunction: ({bool forceReload = false}) => repo.fetchCustomers(),
       searchFunction: (query) => repo.searchCustomers(query),
-      selectedItemLabel: (customer) => customer.name,
-      itemBuilder: (customer, isSelected) => ListTile(
-        selected: isSelected,
-        selectedTileColor: Colors.blue.shade50,
-        title: Text(customer.name, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-        subtitle: Text(customer.phone),
-        trailing: Checkbox(
-          value: isSelected,
-          onChanged: (val) {},
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        ),
-      ),
       isRequired: true,
     );
 
-    _multiRangeCustomerSearch = GenericMultiSearchRangeController<CustomerModel>(
-      labelText: "نطاقات العملاء المتعددة",
-      fromLabelText: "من عميل",
-      toLabelText: "إلى عميل",
-      hintText: "اختر...",
-      // 🔥 تمرير
+    multiRangeCustomerSearch = GenericMultiSearchRangeController<CustomerModel>(
       initialFetchFunction: ({bool forceReload = false}) => repo.fetchCustomers(),
       searchFunction: (query) => repo.searchCustomers(query),
-      selectedItemLabel: (customer) => customer.name,
-      itemBuilder: (customer, isSelected) => ListTile(
-        selected: isSelected,
-        title: Text(customer.name),
-        trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
-      ),
       isRequired: true,
     );
 
-    _offlineCustomerSearch = GenericOfflineSearchController<CustomerModel>(
-      labelText: "اختر العميل (بحث سريع)",
-      hintText: "ابحث بالاسم أو الرقم...",
-      // 🔥 تمرير
+    offlineCustomerSearch = GenericOfflineSearchController<CustomerModel>(
       fetchAllFunction: ({bool forceReload = false}) => repo.fetchCustomers(),
       localFilterFunction: (customer, query) {
         return customer.name.toLowerCase().contains(query) ||
             customer.phone.contains(query);
       },
-      selectedItemLabel: (customer) => customer.name,
-      itemBuilder: (customer, isSelected) => ListTile(
-        selected: isSelected,
-        title: Text(customer.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-        subtitle: Text(customer.phone),
-        trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
-      ),
       isRequired: true,
     );
 
-    _offlineMultiBranchSearch = GenericMultiOfflineSearchController<CustomerModel>(
-      labelText: "تحديد الفروع المعنية (بحث سريع)",
-      hintText: "اضغط لاختيار فروع...",
-      showReloadButton: false,
-      // 🔥 تمرير
+    offlineMultiBranchSearch = GenericMultiOfflineSearchController<CustomerModel>(
       fetchAllFunction: ({bool forceReload = false}) => repo.fetchCustomers(),
       localFilterFunction: (customer, query) {
         return customer.name.toLowerCase().contains(query) ||
             customer.phone.contains(query);
       },
-      selectedItemLabel: (customer) => customer.name,
-      itemBuilder: (customer, isSelected) => ListTile(
-        selected: isSelected,
-        selectedTileColor: Colors.blue.shade50,
-        title: Text(customer.name, style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-        subtitle: Text(customer.phone),
-        trailing: Checkbox(
-          value: isSelected,
-          onChanged: (val) {},
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
-        ),
-      ),
       isRequired: true,
     );
 
-    _hideZeroBalancesFilter = GenericCheckboxController(
-      labelText: "إخفاء الأرصدة الصفرية من التقرير",
+    hideZeroBalancesFilter = GenericCheckboxController(
       defaultValue: true,
     );
 
-    _advancedSettingsGroup = FilterGroupController(
-      dependencies: [_mainCategoryFilter],
+    advancedSettingsGroup = FilterGroupController(
+      dependencies: [mainCategoryFilter],
       titleBuilder: () {
-        final selectedCategory = _mainCategoryFilter.tempValue;
+        final selectedCategory = mainCategoryFilter.tempValue;
         if (selectedCategory == null) {
           return "إعدادات متقدمة (اختر تصنيفاً أولاً)";
         }
         return "إعدادات مخصصة لـ (${selectedCategory.name})";
       },
       childrenFilters: [
-        _subCategoryRangeFilter,
-        _hideZeroBalancesFilter,
+        subCategoryRangeFilter,
+        hideZeroBalancesFilter,
       ],
-      isExpandable: true,
-      isVisible: () => _mainCategoryFilter.tempValue != null,
+      // 🛠️ تم الإصلاح: حذف isExpandable لكي لا يسبب خطأ Compile
+      isVisible: () => mainCategoryFilter.tempValue != null,
     );
   }
 
   @override
   List<BaseFilterController> get filterControllers => [
-    _mainCategoryFilter,
-    _subCategoryRangeFilter,
-    _mainCustomerSearch,
-    _customerRangeSearch,
-    _multiCustomerSearch,
-    _multiRangeCustomerSearch,
-    _offlineCustomerSearch,
-    _offlineMultiBranchSearch,
-    _hideZeroBalancesFilter,
-    _advancedSettingsGroup,
+    mainCategoryFilter,
+    subCategoryRangeFilter,
+    mainCustomerSearch,
+    customerRangeSearch,
+    multiCustomerSearch,
+    multiRangeCustomerSearch,
+    offlineCustomerSearch,
+    offlineMultiBranchSearch,
+    hideZeroBalancesFilter,
+    advancedSettingsGroup,
   ];
 
   @override
   Future<List<String>> fetchReportData() async {
-    final mainCust = _mainCustomerSearch.appliedValue;
-    final rangeCust = _customerRangeSearch.appliedValue;
+    final mainCust = mainCustomerSearch.appliedValue;
+    final rangeCust = customerRangeSearch.appliedValue;
 
     return [
       "العميل الأب: ${mainCust?.name ?? '---'}",

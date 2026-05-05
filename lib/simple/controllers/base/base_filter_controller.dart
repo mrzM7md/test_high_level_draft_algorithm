@@ -99,18 +99,6 @@ abstract class BaseFilterController<T> extends ChangeNotifier {
     validationError = null;
     notifyListeners();
   }
-
-  Widget buildWidget(BuildContext context) {
-    return ListenableBuilder(
-      listenable: this,
-      builder: (context, _) {
-        if (isVisible != null && !isVisible!()) return const SizedBox.shrink();
-        return buildFilterWidget(context);
-      },
-    );
-  }
-
-  Widget buildFilterWidget(BuildContext context);
 }
 
 abstract class ReportStrategy<T> {

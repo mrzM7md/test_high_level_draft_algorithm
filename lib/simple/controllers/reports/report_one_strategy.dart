@@ -1,13 +1,12 @@
-import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_date_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_date_range_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_dropdown_range_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_number_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_range_controller.dart';
-import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_text_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/date_picker/generic_date_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/date_picker_range/generic_date_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/dropdown/generic_dropdown_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/dropdown_range/generic_dropdown_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search/generic_search_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search_range/generic_search_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_text/generic_text_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/numeric_field/generic_number_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/data_range.dart';
 import 'package:test_high_level_draft_algorithm/simple/models/category_model.dart';
 import 'package:test_high_level_draft_algorithm/simple/models/customer_model.dart';
@@ -20,133 +19,89 @@ class ReportOneStrategy implements ReportStrategy<String> {
   final ApiRepository repo = ApiRepository();
 
   // 1. فلاتر التاريخ
-  late final GenericDateRangeController _dateRangeFilter;
-  late final GenericDateController _singleDateFilter;
+  late final GenericDateRangeController dateRangeFilter;
+  late final GenericDateController singleDateFilter;
 
   // 2. فلاتر التصنيفات
-  late final GenericDropdownController _categoryFilter;
-  late final GenericDropdownRangeController<CategoryModel> _categoryRangeFilter;
+  late final GenericDropdownController<CategoryModel> categoryFilter;
+  late final GenericDropdownRangeController<CategoryModel> categoryRangeFilter;
 
   // 3. فلاتر العملاء (مفرد ونطاق)
-  late final GenericSearchController<CustomerModel> _customerFilter;
-  late final GenericSearchRangeController<CustomerModel> _customerRangeFilter;
+  late final GenericSearchController<CustomerModel> customerFilter;
+  late final GenericSearchRangeController<CustomerModel> customerRangeFilter;
 
-  late final GenericTextController _noteFilter;
-  late final GenericNumberController _amountFilter;
+  // 4. فلاتر النصوص والأرقام
+  late final GenericTextController noteFilter;
+  late final GenericNumberController amountFilter;
 
   ReportOneStrategy() {
-    _dateRangeFilter = GenericDateRangeController(
-      labelText: "فترة الفواتير",
-      fromLabelText: "من تاريخ",
-      toLabelText: "حتى تاريخ",
+
+    // بناء فلتر فترة التاريخ
+    dateRangeFilter = GenericDateRangeController(
       defaultRange: DateRange(
           fromDate: DateTime(DateTime.now().year, DateTime.now().month, 1),
           toDate: DateTime.now()
       ),
     );
 
-    _singleDateFilter = GenericDateController(
-      labelText: "تاريخ الاستحقاق",
-      hintText: "اضغط لتحديد التاريخ...",
+    // بناء فلتر التاريخ المفرد
+    singleDateFilter = GenericDateController(
       defaultValue: DateTime.now(),
     );
 
-    _categoryFilter = GenericDropdownController(
-      labelText: "اختر التصنيف",
-      // 🔥 تمرير المُعامل
+    // بناء فلتر التصنيفات
+    categoryFilter = GenericDropdownController<CategoryModel>(
       fetchFunction: ({bool forceReload = false}) => repo.fetchCategories(),
-      itemLabelBuilder: (cat) => cat.name,
     );
 
-    _categoryRangeFilter = GenericDropdownRangeController<CategoryModel>(
-      labelText: "نطاق التصنيفات",
-      fromLabelText: "من تصنيف",
-      toLabelText: "إلى تصنيف",
-      // 🔥 تمرير المُعامل
+    // بناء فلتر نطاق التصنيفات
+    categoryRangeFilter = GenericDropdownRangeController<CategoryModel>(
       fetchFunction: ({bool forceReload = false}) => repo.fetchCategories(),
-      itemLabelBuilder: (cat) => cat.name,
     );
 
-    _customerFilter = GenericSearchController<CustomerModel>(
-      labelText: "العميل (بحث مفرد)",
-      hintText: "اضغط للبحث عن عميل...",
-      // 🔥 تمرير المُعامل
+    // بناء فلتر البحث المفرد للعملاء
+    customerFilter = GenericSearchController<CustomerModel>(
       initialFetchFunction: ({bool forceReload = false}) => repo.fetchCustomers(),
       searchFunction: (query) => repo.searchCustomers(query),
-      selectedItemLabel: (customer) => customer.name,
-      itemBuilder: (customer, isSelected) {
-        return ListTile(
-          selected: isSelected,
-          selectedTileColor: Colors.blue.withOpacity(0.1),
-          title: Text(customer.name, style: TextStyle(fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold)),
-          subtitle: Text(customer.phone),
-          leading: CircleAvatar(
-            backgroundColor: isSelected ? Colors.blue : Colors.grey.shade300,
-            child: Icon(Icons.person, color: isSelected ? Colors.white : Colors.black54),
-          ),
-          trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
-        );
-      },
     );
 
-    _customerRangeFilter = GenericSearchRangeController<CustomerModel>(
-      labelText: "نطاق العملاء (أونلاين)",
-      fromLabelText: "من عميل",
-      toLabelText: "إلى عميل",
-      hintText: "اختر...",
-      // 🔥 تمرير المُعامل
+    // بناء فلتر نطاق البحث للعملاء
+    customerRangeFilter = GenericSearchRangeController<CustomerModel>(
       initialFetchFunction: ({bool forceReload = false}) => repo.fetchCustomers(),
       searchFunction: (query) => repo.searchCustomers(query),
-      selectedItemLabel: (customer) => customer.name,
-      itemBuilder: (customer, isSelected) {
-        return ListTile(
-          selected: isSelected,
-          selectedTileColor: Colors.blue.withOpacity(0.1),
-          title: Text(customer.name, style: TextStyle(fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold)),
-          subtitle: Text(customer.phone),
-          leading: CircleAvatar(
-            backgroundColor: isSelected ? Colors.blue : Colors.grey.shade300,
-            child: Icon(Icons.person, color: isSelected ? Colors.white : Colors.black54),
-          ),
-          trailing: isSelected ? const Icon(Icons.check_circle, color: Colors.blue) : null,
-        );
-      },
     );
 
-    _noteFilter = GenericTextController(
-      labelText: "ملاحظات الفاتورة",
-      hintText: "ابحث بكلمة في الملاحظات...",
-    );
+    // فلتر الملاحظات النصية
+    noteFilter = GenericTextController();
 
-    _amountFilter = GenericNumberController(
-      labelText: "مبلغ الفاتورة (أكبر من)",
-      hintText: "0.0",
+    // فلتر الأرقام
+    amountFilter = GenericNumberController(
       isRequired: true,
     );
   }
 
   @override
   List<BaseFilterController> get filterControllers => [
-    _dateRangeFilter,
-    _singleDateFilter,
-    _categoryFilter,
-    _categoryRangeFilter,
-    _customerFilter,
-    _customerRangeFilter,
-    _noteFilter,
-    _amountFilter
+    dateRangeFilter,
+    singleDateFilter,
+    categoryFilter,
+    categoryRangeFilter,
+    customerFilter,
+    customerRangeFilter,
+    noteFilter,
+    amountFilter
   ];
 
   @override
   Future<List<String>> fetchReportData() async {
-    final dates = _dateRangeFilter.appliedValue;
-    final singleDate = _singleDateFilter.appliedValue;
-    final cat = _categoryFilter.appliedValue;
-    final catRange = _categoryRangeFilter.appliedValue;
-    final cust = _customerFilter.appliedValue;
-    final cstRange = _customerRangeFilter.appliedValue;
-    final noteFilter = _noteFilter.appliedValue;
-    final amountFilter = _amountFilter.appliedValue;
+    final dates = dateRangeFilter.appliedValue;
+    final singleDate = singleDateFilter.appliedValue;
+    final cat = categoryFilter.appliedValue;
+    final catRange = categoryRangeFilter.appliedValue;
+    final cust = customerFilter.appliedValue;
+    final cstRange = customerRangeFilter.appliedValue;
+    final noteValue = noteFilter.appliedValue;
+    final amountValue = amountFilter.appliedValue;
 
     await Future.delayed(const Duration(milliseconds: 500));
 
@@ -159,8 +114,8 @@ class ReportOneStrategy implements ReportStrategy<String> {
       "العميل المحدد: ${cust?.name ?? 'الكل'}",
       "من عميل (نطاق): ${cstRange?.fromValue?.name}",
       "إلى عميل (نطاق): ${cstRange?.toValue?.name}",
-      "ملاحظة: $noteFilter",
-      "إالكمية: $amountFilter",
+      "ملاحظة: $noteValue",
+      "إالكمية: $amountValue",
     ];
   }
 }
