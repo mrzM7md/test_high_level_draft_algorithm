@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:test_high_level_draft_algorithm/helpers/debouncer_helper.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/filter_fetch_exception.dart';
@@ -14,7 +13,12 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
   bool get isLoading => _isLoading;
   bool isSearching = false;
   String? errorMessage;
+
   final DebouncerHelper _debouncer = DebouncerHelper(milliseconds: 500);
+  int _searchToken = 0;
+
+  // 🚀 حماية سباق الاعتماديات
+  int _fetchToken = 0;
 
   GenericMultiSearchController({
     required this.initialFetchFunction, required this.searchFunction,
@@ -28,7 +32,10 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
     validationError = null; notifyListeners(); return true;
   }
 
-  Future<void> ensureDataLoaded() async { if (_items.isNotEmpty || _isLoading || errorMessage != null) return; await refreshData(); }
+  Future<void> ensureDataLoaded() async {
+    if (_items.isNotEmpty || _isLoading) return;
+    await refreshData();
+  }
 
   @override
   void onParentValueChanged() {
@@ -37,31 +44,93 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
   }
 
   Future<void> refreshData({bool forceReload = false}) async {
+    final currentFetchToken = ++_fetchToken; // 🚀 توكن الجلب
+
     _isLoading = true; errorMessage = null; notifyListeners();
     try {
-      final newData = await initialFetchFunction(forceReload: forceReload);
+      final rawData = await initialFetchFunction(forceReload: forceReload);
+
+      // 🚀 إجهاض إذا تغير الاعتماد (الأب) أثناء الجلب!
+      if (_fetchToken != currentFetchToken) return;
+
+      final List<T> safeNewData = List<T>.from(rawData);
+
       List<T>? syncList(List<T>? currentList) {
         if (currentList == null || currentList.isEmpty) return [];
         List<T> synced = [];
-        for (var item in currentList) { if (newData.contains(item)) synced.add(newData.firstWhere((e) => e == item)); else { synced.add(item); if (!_items.contains(item)) newData.insert(0, item); } }
+        for (var item in currentList) {
+          if (safeNewData.contains(item)) {
+            synced.add(safeNewData.firstWhere((e) => e == item));
+          } else {
+            // 🚀 إضافة كمسودة فقط للحفاظ عليها بالواجهة، بدون تلويث القائمة الرئيسية
+            synced.add(item);
+          }
+        }
         return synced;
       }
-      tempValue = syncList(tempValue); appliedValue = syncList(appliedValue);
-      _items = newData; searchResults = List.from(_items);
-    } on FilterFetchException catch (e) { errorMessage = e.message; } catch (e) { errorMessage = "فشل التحميل."; } finally { _isLoading = false; notifyListeners(); }
+
+      tempValue = syncList(tempValue);
+      appliedValue = syncList(appliedValue);
+      _items = safeNewData;
+
+      if (!isSearching && !_debouncer.isTimerActive) {
+        searchResults = List.from(_items);
+      }
+
+    } on FilterFetchException catch (e) {
+      errorMessage = e.message;
+    } catch (e) {
+      errorMessage = "فشل التحميل.";
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   void onSearchQueryChanged(String query) {
     _debouncer.cancel();
-    if (query.trim().isEmpty) { searchResults = List.from(_items); isSearching = false; notifyListeners(); return; }
+
+    if (query.trim().isEmpty) {
+      searchResults = List.from(_items);
+      isSearching = false;
+      _searchToken++;
+      notifyListeners();
+      return;
+    }
+
+    final currentToken = ++_searchToken;
+
     _debouncer.run(() async {
       isSearching = true; notifyListeners();
-      try { searchResults = await searchFunction(query); } catch (e) { searchResults = []; } finally { isSearching = false; notifyListeners(); }
+      try {
+        final results = await searchFunction(query);
+        if (_searchToken == currentToken) {
+          searchResults = results;
+        }
+      } catch (e) {
+        if (_searchToken == currentToken) searchResults = [];
+      } finally {
+        if (_searchToken == currentToken) {
+          isSearching = false;
+          notifyListeners();
+        }
+      }
     });
   }
 
-  void resetSearch() { searchResults = List.from(_items); isSearching = false; notifyListeners(); }
+  void resetSearch() {
+    _searchToken++;
+    searchResults = List.from(_items);
+    isSearching = false;
+    notifyListeners();
+  }
+
   void toggleItem(T item) { final currentList = List<T>.from(tempValue ?? []); if (currentList.contains(item)) currentList.remove(item); else currentList.add(item); updateTemp(currentList.isEmpty ? null : currentList); }
   void removeItem(T item) { final currentList = List<T>.from(tempValue ?? []); currentList.remove(item); updateTemp(currentList.isEmpty ? null : currentList); }
-  @override void dispose() { _debouncer.cancel(); super.dispose(); }
+
+  @override
+  void dispose() {
+    _debouncer.cancel();
+    super.dispose();
+  }
 }

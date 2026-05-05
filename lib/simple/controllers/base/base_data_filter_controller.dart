@@ -1,5 +1,5 @@
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
-import '../general/models/filter_fetch_exception.dart'; // 🔥 تأكد من مسار الاستثناء
+import '../general/models/filter_fetch_exception.dart';
 
 abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
   List<T> _items = [];
@@ -11,8 +11,10 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
   String? _errorMessage;
   String? get errorMessage => _errorMessage;
 
-  // 🔥 المعامل الجديد: دالة اختيار القيمة الافتراضية بذكاء بعد جلب البيانات
   final T? Function(List<T> items)? defaultSelectionBuilder;
+
+  // 🏎️ توكن الحماية لمنع سباق التنازع عند تغير الكنترولر الأب بسرعة
+  int _fetchToken = 0;
 
   BaseDataFilterController({
     super.defaultValue,
@@ -20,13 +22,14 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
     super.isVisible,
     super.isRequired,
     super.showReloadButton,
-    this.defaultSelectionBuilder, // 🔥 تمرير المعامل
+    this.defaultSelectionBuilder,
   });
 
   @override
   void onParentValueChanged() {
     _items = [];
     tempValue = null;
+    validationError = null;
     super.onParentValueChanged();
 
     if (isVisible == null || isVisible!()) {
@@ -39,51 +42,56 @@ abstract class BaseDataFilterController<T> extends BaseFilterController<T> {
   }
 
   Future<void> _fetchInternal({bool forceReload = false}) async {
+    final currentFetchToken = ++_fetchToken; // توليد توكن جديد
+
     _isLoading = true;
-    _errorMessage = null; // تصفير الخطأ عند المحاولة الجديدة
+    _errorMessage = null;
     notifyListeners();
 
     try {
-      // 3. 🔥 تمرير أمر الإجبار لدالة الجلب الفعلي التي ستُبنى في الكنترولرات الابنة
-      final newData = await fetchDataFromServer(forceReload: forceReload);
+      final rawData = await fetchDataFromServer(forceReload: forceReload);
 
-      // دالة المزامنة المعتادة
+      // 🏎️ إجهاض إذا تغير الاعتماد أثناء الجلب لمنع تدمير البيانات
+      if (_fetchToken != currentFetchToken) return;
+
+      final safeNewData = List<T>.from(rawData);
+
       T? syncItem(T? currentItem) {
         if (currentItem == null) return null;
-        if (!newData.contains(currentItem)) return currentItem;
-        return newData.firstWhere((e) => e == currentItem);
+        if (safeNewData.contains(currentItem)) {
+          return safeNewData.firstWhere((e) => e == currentItem);
+        } else {
+          return currentItem;
+        }
       }
 
       tempValue = syncItem(tempValue);
       appliedValue = syncItem(appliedValue);
-      _items = newData;
+      _items = safeNewData;
 
-      // السحر هنا: تطبيق القيمة الافتراضية الذكية إذا لم يكن هناك قيمة مختارة
       if (tempValue == null && defaultSelectionBuilder != null) {
         tempValue = defaultSelectionBuilder!(_items);
-
-        // نجعلها مطبقة فوراً (Applied) لكي تُحسب في فلاتر الأبناء إن وُجدت
         if (tempValue != null) {
           appliedValue = tempValue;
         }
       }
 
     } on FilterFetchException catch (e) {
-      _errorMessage = e.message; // التقاط خطأ السيرفر المخصص
+      _errorMessage = e.message;
     } catch (e) {
-      _errorMessage = "عذراً، تعذر تحديث البيانات."; // خطأ عام
+      _errorMessage = "عذراً، تعذر تحديث البيانات.";
     } finally {
-      _isLoading = false;
-      notifyListeners();
+      if (_fetchToken == currentFetchToken) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
   }
 
   Future<void> ensureDataLoaded() async {
-    // إيقاف حلقة إعادة البناء اللانهائية إذا كان هناك خطأ
-    if (_items.isNotEmpty || _isLoading || _errorMessage != null) return;
+    if (_items.isNotEmpty || _isLoading) return;
     await _fetchInternal();
   }
 
-  // 4. 🔥 إضافة المعامل لتوقيع الدالة التجريدية لكي تلتزم به كل الكنترولرات
   Future<List<T>> fetchDataFromServer({bool forceReload = false});
 }

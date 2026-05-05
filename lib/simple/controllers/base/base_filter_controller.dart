@@ -1,4 +1,3 @@
-// --- base_filter_controller.dart ---
 import 'package:flutter/material.dart';
 
 abstract class BaseFilterController<T> extends ChangeNotifier {
@@ -10,28 +9,51 @@ abstract class BaseFilterController<T> extends ChangeNotifier {
   final bool Function()? isVisible;
 
   final bool isRequired;
-  final bool showReloadButton; // 🔥 إضافة المعامل الجديد
+  final bool showReloadButton;
   String? validationError;
 
   List<dynamic>? _lastDependencyValues;
+
+  // 🛡️ درع الحماية المركزي لمنع تحديث واجهة ميتة
+  bool _isDisposed = false;
 
   BaseFilterController({
     this.defaultValue,
     this.dependencies,
     this.isVisible,
     bool? isRequired,
-    bool? showReloadButton, // 🔥 نستقبله كـ Nullable
+    bool? showReloadButton,
   }) : isRequired = isRequired ?? false,
-        showReloadButton = showReloadButton ?? true { // 🔥 نؤمنه هنا بأمان ليكون true افتراضياً
+        showReloadButton = showReloadButton ?? true {
     appliedValue = defaultValue;
     tempValue = defaultValue;
 
     if (dependencies != null) {
       _lastDependencyValues = dependencies!.map((d) => d.tempValue).toList();
       for (var dep in dependencies!) {
-        dep.addListener(_handleDependencyChange);
+        dep.addListener(_handleDependencyChange); // 👈 ربط التنصت
       }
     }
+  }
+
+  // 🛡️ حماية مركزية: لا تقم بتحديث الشاشة إذا كان الكنترولر قد مات
+  @override
+  void notifyListeners() {
+    if (!_isDisposed) {
+      super.notifyListeners();
+    }
+  }
+
+  // ☢️ الحل العبقري لتسرب الذاكرة (Memory Leak Prevention)
+  @override
+  void dispose() {
+    _isDisposed = true; // إعلان الوفاة
+    if (dependencies != null) {
+      for (var dep in dependencies!) {
+        dep.removeListener(_handleDependencyChange); // 👈 فك التنصت وتنظيف الذاكرة
+      }
+    }
+    super.dispose();
   }
 
   void _handleDependencyChange() {

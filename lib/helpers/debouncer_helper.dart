@@ -10,6 +10,9 @@ class DebouncerHelper {
   //   /// Constructs a Debouncer with the specified delay in milliseconds.
   DebouncerHelper({this.milliseconds = 300});
 
+  // 🚀 السطر الذي قمنا بإضافته لمعرفة هل العداد يعمل حالياً أم لا
+  bool get isTimerActive => _timer?.isActive ?? false;
+
   /// Runs the provided action after the debounced delay.
   /// - Cancels any existing timer if the user is still typing.
   /// - Starts a new timer and executes the action when the delay elapses.

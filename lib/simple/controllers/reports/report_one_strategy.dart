@@ -1,3 +1,5 @@
+// 🚫 تأكد من عدم وجود أي استيراد لـ flutter/material.dart
+
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_filter_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/date_picker/generic_date_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/date_picker_range/generic_date_range_controller.dart';
@@ -38,10 +40,16 @@ class ReportOneStrategy implements ReportStrategy<String> {
 
     // بناء فلتر فترة التاريخ
     dateRangeFilter = GenericDateRangeController(
-      defaultRange: DateRange(
+      defaultValue: DateRange(
           fromDate: DateTime(DateTime.now().year, DateTime.now().month, 1),
           toDate: DateTime.now()
       ),
+      // 🚀 حماية التواريخ العكسية
+      customRangeValidator: (from, to) {
+        if (from == null || to == null) return true; // يتم تجاهله إذا كان أحدهما فارغاً
+        return from.isBefore(to) || from.isAtSameMomentAs(to);
+      },
+      customRangeErrorMessage: "تاريخ البداية (من) لا يمكن أن يكون بعد تاريخ النهاية (إلى)",
     );
 
     // بناء فلتر التاريخ المفرد
@@ -57,6 +65,12 @@ class ReportOneStrategy implements ReportStrategy<String> {
     // بناء فلتر نطاق التصنيفات
     categoryRangeFilter = GenericDropdownRangeController<CategoryModel>(
       fetchFunction: ({bool forceReload = false}) => repo.fetchCategories(),
+      // 🚀 حماية الترتيب: كمثال نقارن الـ ID أو يمكنك التعديل لمقارنة أي حقل ترتيب
+      customRangeValidator: (from, to) {
+        if (from == null || to == null) return true;
+        return from.id.toString().compareTo(to.id.toString()) <= 0;
+      },
+      customRangeErrorMessage: "تصنيف (من) يجب أن يكون قبل أو يساوي تصنيف (إلى)",
     );
 
     // بناء فلتر البحث المفرد للعملاء
@@ -69,6 +83,12 @@ class ReportOneStrategy implements ReportStrategy<String> {
     customerRangeFilter = GenericSearchRangeController<CustomerModel>(
       initialFetchFunction: ({bool forceReload = false}) => repo.fetchCustomers(),
       searchFunction: (query) => repo.searchCustomers(query),
+      // 🚀 حماية الترتيب: كمثال نقارن الأسماء أبجدياً
+      customRangeValidator: (from, to) {
+        if (from == null || to == null) return true;
+        return from.name.compareTo(to.name) <= 0;
+      },
+      customRangeErrorMessage: "اسم العميل في (من) يجب أن يسبق أبجدياً اسم العميل في (إلى)",
     );
 
     // فلتر الملاحظات النصية
