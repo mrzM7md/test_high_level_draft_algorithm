@@ -3,8 +3,8 @@ import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_fil
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/dropdown_range.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/filter_fetch_exception.dart';
 
-class GenericMultiSearchRangeController<T> extends BaseFilterController<DropdownRange<List<T>>> {
-
+class GenericMultiSearchRangeController<T>
+    extends BaseFilterController<DropdownRange<List<T>>> {
   final Future<List<T>> Function({bool forceReload}) initialFetchFunction;
   final Future<List<T>> Function(String query) searchFunction;
 
@@ -12,29 +12,39 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
   final String? customRangeErrorMessage;
 
   List<T> _items = [];
+
   List<T> get items => _items;
   List<T> searchResults = [];
   bool _isLoading = false;
+
   bool get isLoading => _isLoading;
   bool isSearching = false;
   String? errorMessage;
 
-  final DebouncerHelper _debouncer = DebouncerHelper(milliseconds: 500);
+  late final DebouncerHelper _debouncer;
   int _searchToken = 0;
-
   int _fetchToken = 0;
 
   GenericMultiSearchRangeController({
     required this.initialFetchFunction,
     required this.searchFunction,
+    int debounceMilliseconds = 500, // 🚀 تخصيص السرعة للسيرفر!
     this.customRangeValidator,
     this.customRangeErrorMessage,
-    super.defaultValue, super.dependencies, super.isVisible, super.isRequired,
-  });
+    super.defaultValue,
+    super.dependencies,
+    super.isVisible,
+    super.isRequired,
+  }) {
+    _debouncer = DebouncerHelper(milliseconds: debounceMilliseconds);
+  }
 
   @override
   bool validate() {
-    if (isVisible != null && !isVisible!()) { validationError = null; return true; }
+    if (isVisible != null && !isVisible!()) {
+      validationError = null;
+      return true;
+    }
 
     final fromList = tempValue?.fromValue ?? [];
     final toList = tempValue?.toValue ?? [];
@@ -45,6 +55,13 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
       return false;
     }
 
+    // 🚀 الحماية المطلقة: تجاوز التحقق المخصص إذا كان الحقل فارغاً واختيارياً
+    if (!isRequired && fromList.isEmpty && toList.isEmpty) {
+      validationError = null;
+      notifyListeners();
+      return true;
+    }
+
     if (customRangeValidator != null) {
       if (!customRangeValidator!(tempValue?.fromValue, tempValue?.toValue)) {
         validationError = customRangeErrorMessage ?? "النطاق المحدد غير منطقي";
@@ -53,19 +70,26 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
       }
     }
 
-    validationError = null; notifyListeners(); return true;
+    validationError = null;
+    notifyListeners();
+    return true;
   }
 
   @override
   void onParentValueChanged() {
-    _items = []; searchResults = []; tempValue = DropdownRange<List<T>>(fromValue: [], toValue: []); super.onParentValueChanged();
+    _items = [];
+    searchResults = [];
+    tempValue = DropdownRange<List<T>>(fromValue: [], toValue: []);
+    super.onParentValueChanged();
     if (isVisible == null || isVisible!()) refreshData(forceReload: false);
   }
 
   Future<void> refreshData({bool forceReload = false}) async {
     final currentFetchToken = ++_fetchToken;
 
-    _isLoading = true; errorMessage = null; notifyListeners();
+    _isLoading = true;
+    errorMessage = null;
+    notifyListeners();
     try {
       final rawData = await initialFetchFunction(forceReload: forceReload);
       if (_fetchToken != currentFetchToken) return;
@@ -79,21 +103,38 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
           if (safeNewData.contains(item)) {
             synced.add(safeNewData.firstWhere((e) => e == item));
           } else {
-            synced.add(item); // 🚀 مسودة فقط
+            synced.add(item);
           }
         }
         return synced;
       }
 
-      if (tempValue != null) tempValue = DropdownRange<List<T>>(fromValue: syncList(tempValue!.fromValue), toValue: syncList(tempValue!.toValue));
-      if (appliedValue != null) appliedValue = DropdownRange<List<T>>(fromValue: syncList(appliedValue!.fromValue), toValue: syncList(appliedValue!.toValue));
+      if (tempValue != null) {
+        tempValue = DropdownRange<List<T>>(
+          fromValue: syncList(tempValue!.fromValue),
+          toValue: syncList(tempValue!.toValue),
+        );
+      }
+      if (appliedValue != null) {
+        appliedValue = DropdownRange<List<T>>(
+          fromValue: syncList(appliedValue!.fromValue),
+          toValue: syncList(appliedValue!.toValue),
+        );
+      }
 
       _items = safeNewData;
 
       if (!isSearching && !_debouncer.isTimerActive) {
         searchResults = List.from(_items);
       }
-    } on FilterFetchException catch (e) { errorMessage = e.message; } catch (e) { errorMessage = "فشل التحميل."; } finally { _isLoading = false; notifyListeners(); }
+    } on FilterFetchException catch (e) {
+      errorMessage = e.message;
+    } catch (e) {
+      errorMessage = "فشل التحميل.";
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> ensureDataLoaded() async {
@@ -103,37 +144,74 @@ class GenericMultiSearchRangeController<T> extends BaseFilterController<Dropdown
 
   void onSearchQueryChanged(String query) {
     _debouncer.cancel();
-    if (query.trim().isEmpty) { searchResults = List.from(_items); isSearching = false; notifyListeners(); return; }
+    if (query.trim().isEmpty) {
+      searchResults = List.from(_items);
+      isSearching = false;
+      notifyListeners();
+      return;
+    }
 
     final currentToken = ++_searchToken;
 
     _debouncer.run(() async {
-      isSearching = true; notifyListeners();
+      isSearching = true;
+      notifyListeners();
       try {
         final results = await searchFunction(query);
-        if (_searchToken == currentToken) { searchResults = results; }
+        if (_searchToken == currentToken) {
+          searchResults = results;
+        }
       } catch (e) {
-        if (_searchToken == currentToken) { searchResults = []; }
+        if (_searchToken == currentToken) {
+          searchResults = [];
+        }
       } finally {
-        if (_searchToken == currentToken) { isSearching = false; notifyListeners(); }
+        if (_searchToken == currentToken) {
+          isSearching = false;
+          notifyListeners();
+        }
       }
     });
   }
 
-  void resetSearch() { searchResults = List.from(_items); isSearching = false; notifyListeners(); }
+  void resetSearch() {
+    searchResults = List.from(_items);
+    isSearching = false;
+    notifyListeners();
+  }
 
   void toggleItem(T item, {required bool isFrom}) {
-    final currentRange = tempValue ?? DropdownRange<List<T>>(fromValue: [], toValue: []);
-    List<T> list = List.from(isFrom ? (currentRange.fromValue ?? []) : (currentRange.toValue ?? []));
-    if (list.contains(item)) { list.remove(item); } else { list.add(item); }
-    updateTemp(DropdownRange<List<T>>(fromValue: isFrom ? list : currentRange.fromValue, toValue: !isFrom ? list : currentRange.toValue));
+    final currentRange =
+        tempValue ?? DropdownRange<List<T>>(fromValue: [], toValue: []);
+    List<T> list = List.from(
+      isFrom ? (currentRange.fromValue ?? []) : (currentRange.toValue ?? []),
+    );
+    if (list.contains(item)) {
+      list.remove(item);
+    } else {
+      list.add(item);
+    }
+    updateTemp(
+      DropdownRange<List<T>>(
+        fromValue: isFrom ? list : currentRange.fromValue,
+        toValue: !isFrom ? list : currentRange.toValue,
+      ),
+    );
   }
 
   void removeItem(T item, {required bool isFrom}) {
-    final currentRange = tempValue ?? DropdownRange<List<T>>(fromValue: [], toValue: []);
-    List<T> list = List.from(isFrom ? (currentRange.fromValue ?? []) : (currentRange.toValue ?? []));
+    final currentRange =
+        tempValue ?? DropdownRange<List<T>>(fromValue: [], toValue: []);
+    List<T> list = List.from(
+      isFrom ? (currentRange.fromValue ?? []) : (currentRange.toValue ?? []),
+    );
     list.remove(item);
-    updateTemp(DropdownRange<List<T>>(fromValue: isFrom ? list : currentRange.fromValue, toValue: !isFrom ? list : currentRange.toValue));
+    updateTemp(
+      DropdownRange<List<T>>(
+        fromValue: isFrom ? list : currentRange.fromValue,
+        toValue: !isFrom ? list : currentRange.toValue,
+      ),
+    );
   }
 
   @override

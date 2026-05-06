@@ -1,69 +1,182 @@
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_multi_search_range/generic_multi_search_range_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_multi_search_range/generic_multi_search_range_style.dart';
+// لا تنس استيراد GenericMultiSearchRangeStyle
 
-class GenericMultiSearchRangeWidget<T> extends StatelessWidget {
+class GenericMultiSearchRangeWidget<T> extends StatefulWidget {
   final GenericMultiSearchRangeController<T> controller;
   final String labelText;
+  final GenericMultiSearchRangeStyle? style;
+  final bool showReloadButton;
+
+  // 🌍 نصوص الترجمة والديناميكية
   final String fromLabelText;
   final String toLabelText;
   final String hintText;
-  final String Function(T item) selectedItemLabel;
+  final String searchHintText;
+  final String noResultsText;
+  final String closeText;
+  final String confirmText;
+  final String selectedText;
+
+  // 🚀 البنائين للتحكم المطلق في التصميم
   final Widget Function(T item, bool isSelected) itemBuilder;
-  final bool showReloadButton;
+  final String Function(T item)? selectedItemLabel;
+
+  // 🚀 تمرير `isFrom` للبنّاء ليتمكن المبرمج من تصميم شكل مختلف لـ "من" و "إلى" إذا أراد
+  final Widget Function(
+    BuildContext context,
+    T item,
+    bool isFrom,
+    VoidCallback onDeleted,
+  )?
+  customChipBuilder;
+  final WidgetBuilder? emptyStateBuilder;
+  final WidgetBuilder? loadingStateBuilder;
 
   const GenericMultiSearchRangeWidget({
     super.key,
     required this.controller,
     required this.labelText,
+    required this.itemBuilder,
     this.fromLabelText = "من",
     this.toLabelText = "إلى",
     this.hintText = "اختر...",
-    required this.selectedItemLabel,
-    required this.itemBuilder,
+    this.searchHintText = "بحث",
+    this.noResultsText = "لا توجد نتائج.",
+    this.closeText = "إغلاق",
+    this.confirmText = "موافق",
+    this.selectedText = "مختار",
     this.showReloadButton = true,
-  });
+    this.selectedItemLabel,
+    this.customChipBuilder,
+    this.emptyStateBuilder,
+    this.loadingStateBuilder,
+    this.style,
+  }) : assert(
+         selectedItemLabel != null || customChipBuilder != null,
+         'يجب توفير selectedItemLabel أو customChipBuilder لرسم الـ Chips!',
+       );
 
-  void _openSearchSheet(BuildContext context, {required bool isFrom}) {
-    controller.resetSearch();
+  @override
+  State<GenericMultiSearchRangeWidget<T>> createState() =>
+      _GenericMultiSearchRangeWidgetState<T>();
+}
+
+class _GenericMultiSearchRangeWidgetState<T>
+    extends State<GenericMultiSearchRangeWidget<T>> {
+  @override
+  void initState() {
+    super.initState();
+    // 🛡️ نقلنا التحميل لهنا لإنقاذ السيرفرات من الـ DDoS!
+    widget.controller.ensureDataLoaded();
+  }
+
+  void _openSearchSheet(
+    BuildContext context, {
+    required bool isFrom,
+    required GenericMultiSearchRangeStyle appliedStyle,
+  }) {
+    widget.controller.resetSearch();
     showModalBottomSheet(
-      context: context, isScrollControlled: true,
+      context: context,
+      isScrollControlled: true,
+      shape: appliedStyle.bottomSheetShape,
       builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(top: 20, left: 16, right: 16, bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+        padding: EdgeInsets.only(
+          top: 24,
+          left: 16,
+          right: 16,
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
+        ),
         child: SizedBox(
-          height: MediaQuery.of(sheetContext).size.height * 0.75,
+          height:
+              MediaQuery.of(sheetContext).size.height *
+              appliedStyle.bottomSheetHeightRatio!,
           child: Column(
             children: [
-              TextField(decoration: InputDecoration(labelText: "بحث (${isFrom ? fromLabelText : toLabelText})...", prefixIcon: const Icon(Icons.search), border: const OutlineInputBorder()), onChanged: controller.onSearchQueryChanged),
-              const SizedBox(height: 10),
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                margin: EdgeInsetsGeometry.only(bottom: 16),
+              ),
+              TextField(
+                decoration: appliedStyle.searchFieldDecoration!.copyWith(
+                  labelText:
+                      "${widget.searchHintText} (${isFrom ? widget.fromLabelText : widget.toLabelText})...",
+                ),
+                onChanged: widget.controller.onSearchQueryChanged,
+                autofocus: true,
+              ),
+              const SizedBox(height: 12),
               Expanded(
                 child: ListenableBuilder(
-                  listenable: controller,
+                  listenable: widget.controller,
                   builder: (context, _) {
-                    if (controller.isSearching) return const Center(child: CircularProgressIndicator());
-                    if (controller.searchResults.isEmpty) return const Center(child: Text("لا توجد نتائج."));
-                    final currentList = isFrom ? (controller.tempValue?.fromValue ?? []) : (controller.tempValue?.toValue ?? []);
+                    if (widget.controller.isSearching) {
+                      return widget.loadingStateBuilder != null
+                          ? widget.loadingStateBuilder!(context)
+                          : const Center(child: CircularProgressIndicator());
+                    }
+                    if (widget.controller.searchResults.isEmpty) {
+                      return widget.emptyStateBuilder != null
+                          ? widget.emptyStateBuilder!(context)
+                          : Center(
+                              child: Text(
+                                widget.noResultsText,
+                                style: appliedStyle.hintStyle,
+                              ),
+                            );
+                    }
+                    final currentList = isFrom
+                        ? (widget.controller.tempValue?.fromValue ?? [])
+                        : (widget.controller.tempValue?.toValue ?? []);
                     return ListView.builder(
-                      itemCount: controller.searchResults.length,
+                      itemCount: widget.controller.searchResults.length,
                       itemBuilder: (context, index) {
-                        final item = controller.searchResults[index];
+                        final item = widget.controller.searchResults[index];
                         final isSelected = currentList.contains(item);
-                        return InkWell(onTap: () => controller.toggleItem(item, isFrom: isFrom), child: itemBuilder(item, isSelected));
+                        return InkWell(
+                          onTap: () => widget.controller.toggleItem(
+                            item,
+                            isFrom: isFrom,
+                          ),
+                          child: widget.itemBuilder(item, isSelected),
+                        );
                       },
                     );
                   },
                 ),
               ),
               Container(
-                width: double.infinity, padding: const EdgeInsets.only(top: 10, bottom: 20),
+                width: double.infinity,
+                padding: const EdgeInsets.only(top: 12),
                 child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
                   onPressed: () => Navigator.pop(sheetContext),
                   child: ListenableBuilder(
-                      listenable: controller,
-                      builder: (context, _) {
-                        final count = isFrom ? (controller.tempValue?.fromValue?.length ?? 0) : (controller.tempValue?.toValue?.length ?? 0);
-                        return Text(count > 0 ? "موافق ($count)" : "إغلاق");
-                      }),
+                    listenable: widget.controller,
+                    builder: (context, _) {
+                      final count = isFrom
+                          ? (widget.controller.tempValue?.fromValue?.length ??
+                                0)
+                          : (widget.controller.tempValue?.toValue?.length ?? 0);
+                      return Text(
+                        count > 0
+                            ? "${widget.confirmText} ($count)"
+                            : widget.closeText,
+                      );
+                    },
+                  ),
                 ),
               ),
             ],
@@ -75,44 +188,134 @@ class GenericMultiSearchRangeWidget<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    controller.ensureDataLoaded();
+    final appliedStyle = (widget.style ?? const GenericMultiSearchRangeStyle())
+        .mergeWithDefault(context);
+    final theme = Theme.of(context);
+
     return ListenableBuilder(
-      listenable: controller,
+      listenable: widget.controller,
       builder: (context, _) {
-        if (controller.isVisible != null && !controller.isVisible!()) return const SizedBox.shrink();
-        final fromList = controller.tempValue?.fromValue ?? [];
-        final toList = controller.tempValue?.toValue ?? [];
+        if (widget.controller.isVisible != null &&
+            !widget.controller.isVisible!())
+          return const SizedBox.shrink();
+
+        final fromList = widget.controller.tempValue?.fromValue ?? [];
+        final toList = widget.controller.tempValue?.toValue ?? [];
         final hasAnyItems = fromList.isNotEmpty || toList.isNotEmpty;
 
+        Widget? smartSuffixIcon;
+        if (widget.controller.isLoading) {
+          smartSuffixIcon = const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.0),
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        } else if (widget.controller.errorMessage != null &&
+            widget.showReloadButton) {
+          smartSuffixIcon = IconButton(
+            icon: Icon(Icons.refresh_rounded, color: theme.colorScheme.error),
+            onPressed: () => widget.controller.refreshData(forceReload: true),
+            splashRadius: 20,
+          );
+        } else if (hasAnyItems) {
+          smartSuffixIcon = IconButton(
+            icon: Icon(
+              Icons.close_rounded,
+              color: theme.colorScheme.error,
+              size: 20,
+            ),
+            onPressed: () => widget.controller.clear(),
+            splashRadius: 20,
+          );
+        }
+
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          padding: appliedStyle.padding!,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               InputDecorator(
-                decoration: InputDecoration(
-                  labelText: labelText, border: const OutlineInputBorder(), errorText: controller.errorMessage ?? controller.validationError,
-                  suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
-                    if (controller.isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                    if (showReloadButton && !controller.isLoading) IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => controller.refreshData(forceReload: true)),
-                    if (hasAnyItems) IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => controller.clear()),
-                  ]),
+                decoration: appliedStyle.decoration!.copyWith(
+                  labelText: widget.labelText,
+                  errorText:
+                      widget.controller.errorMessage ??
+                      widget.controller.validationError,
+                  suffixIcon: smartSuffixIcon,
                 ),
                 child: Row(
                   children: [
-                    Expanded(child: _buildSearchButton(context, label: fromLabelText, count: fromList.length, isFrom: true)),
-                    Container(width: 1, height: 30, color: Colors.grey.shade300, margin: const EdgeInsets.symmetric(horizontal: 8)),
-                    Expanded(child: _buildSearchButton(context, label: toLabelText, count: toList.length, isFrom: false)),
+                    Expanded(
+                      child: _buildSearchButton(
+                        context,
+                        label: widget.fromLabelText,
+                        count: fromList.length,
+                        isFrom: true,
+                        style: appliedStyle,
+                      ),
+                    ),
+                    Container(
+                      width: 1,
+                      height: 30,
+                      color: theme.dividerColor,
+                      margin: const EdgeInsets.symmetric(horizontal: 12),
+                    ),
+                    Expanded(
+                      child: _buildSearchButton(
+                        context,
+                        label: widget.toLabelText,
+                        count: toList.length,
+                        isFrom: false,
+                        style: appliedStyle,
+                      ),
+                    ),
                   ],
                 ),
               ),
               if (fromList.isNotEmpty) ...[
-                const SizedBox(height: 10), Text("المختارة في ($fromLabelText):", style: TextStyle(fontSize: 11, color: Colors.blue.shade700, fontWeight: FontWeight.bold)),
-                Wrap(spacing: 6.0, runSpacing: 4.0, children: fromList.map((item) => Chip(label: Text(selectedItemLabel(item), style: const TextStyle(fontSize: 12)), deleteIcon: const Icon(Icons.cancel, size: 16), onDeleted: () => controller.removeItem(item, isFrom: true), backgroundColor: Colors.blue.shade50, side: BorderSide(color: Colors.blue.shade200))).toList()),
+                const SizedBox(height: 12),
+                Text(
+                  "${widget.selectedText} (${widget.fromLabelText}):",
+                  style: appliedStyle.fromChipTextStyle?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8.0,
+                  runSpacing: 8.0,
+                  children: fromList
+                      .map(
+                        (item) =>
+                            _buildChip(item, isFrom: true, style: appliedStyle),
+                      )
+                      .toList(),
+                ),
               ],
               if (toList.isNotEmpty) ...[
-                const SizedBox(height: 10), Text("المختارة في ($toLabelText):", style: TextStyle(fontSize: 11, color: Colors.green.shade700, fontWeight: FontWeight.bold)),
-                Wrap(spacing: 6.0, runSpacing: 4.0, children: toList.map((item) => Chip(label: Text(selectedItemLabel(item), style: const TextStyle(fontSize: 12)), deleteIcon: const Icon(Icons.cancel, size: 16), onDeleted: () => controller.removeItem(item, isFrom: false), backgroundColor: Colors.green.shade50, side: BorderSide(color: Colors.green.shade200))).toList()),
+                const SizedBox(height: 12),
+                Text(
+                  "${widget.selectedText} (${widget.toLabelText}):",
+                  style: appliedStyle.toChipTextStyle?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8.0,
+                  runSpacing: 8.0,
+                  children: toList
+                      .map(
+                        (item) => _buildChip(
+                          item,
+                          isFrom: false,
+                          style: appliedStyle,
+                        ),
+                      )
+                      .toList(),
+                ),
               ],
             ],
           ),
@@ -121,22 +324,77 @@ class GenericMultiSearchRangeWidget<T> extends StatelessWidget {
     );
   }
 
-  Widget _buildSearchButton(BuildContext context, {required String label, required int count, required bool isFrom}) {
+  Widget _buildSearchButton(
+    BuildContext context, {
+    required String label,
+    required int count,
+    required bool isFrom,
+    required GenericMultiSearchRangeStyle style,
+  }) {
     return InkWell(
-      onTap: () => _openSearchSheet(context, isFrom: isFrom),
+      onTap: () =>
+          _openSearchSheet(context, isFrom: isFrom, appliedStyle: style),
+      borderRadius: BorderRadius.circular(4),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+          Text(label, style: style.hintStyle?.copyWith(fontSize: 11)),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(child: Text(count > 0 ? "مختار ($count)" : hintText, style: TextStyle(fontWeight: count > 0 ? FontWeight.bold : FontWeight.normal), overflow: TextOverflow.ellipsis)),
-              const Icon(Icons.search, size: 16, color: Colors.blue),
+              Expanded(
+                child: Text(
+                  count > 0
+                      ? "${widget.selectedText} ($count)"
+                      : widget.hintText,
+                  style: count > 0
+                      ? style.textStyle?.copyWith(fontWeight: FontWeight.bold)
+                      : style.hintStyle,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(
+                Icons.search_rounded,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ],
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildChip(
+    T item, {
+    required bool isFrom,
+    required GenericMultiSearchRangeStyle style,
+  }) {
+    if (widget.customChipBuilder != null) {
+      return widget.customChipBuilder!(
+        context,
+        item,
+        isFrom,
+        () => widget.controller.removeItem(item, isFrom: isFrom),
+      );
+    }
+    return Chip(
+      label: Text(
+        widget.selectedItemLabel!(item),
+        style: isFrom ? style.fromChipTextStyle : style.toChipTextStyle,
+      ),
+      deleteIcon: Icon(
+        Icons.cancel_rounded,
+        size: 18,
+        color: style.chipDeleteIconColor,
+      ),
+      onDeleted: () => widget.controller.removeItem(item, isFrom: isFrom),
+      backgroundColor: isFrom
+          ? style.fromChipBackgroundColor
+          : style.toChipBackgroundColor,
+      shape: style.chipShape,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     );
   }
 }
