@@ -4,7 +4,6 @@ import 'package:test_high_level_draft_algorithm/simple/controllers/general/model
 
 class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRange<T>> {
   final Future<List<T>> Function({bool forceReload}) fetchFunction;
-
   final bool Function(T? from, T? to)? customRangeValidator;
   final String? customRangeErrorMessage;
 
@@ -13,8 +12,6 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
   bool _isLoading = false;
   bool get isLoading => _isLoading;
   String? errorMessage;
-
-  // 🚀 إضافة حماية سباق التنازع
   int _fetchToken = 0;
 
   GenericDropdownRangeController({
@@ -31,10 +28,17 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
     final fromVal = tempValue?.fromValue;
     final toVal = tempValue?.toValue;
 
-    if (isRequired && fromVal == null && toVal == null) {
-      validationError = "هذا الحقل مطلوب ولا يمكن تركه فارغاً";
+    if (isRequired && (fromVal == null || toVal == null)) {
+      validationError = "هذا الحقل مطلوب بالكامل ولا يمكن تركه فارغاً";
       notifyListeners();
       return false;
+    }
+
+    // 🚀 الحماية المطلقة: لا تنفذ دالة التحقق إذا كان الحقل اختيارياً وفارغاً!
+    if (!isRequired && fromVal == null && toVal == null) {
+      validationError = null;
+      notifyListeners();
+      return true;
     }
 
     if (customRangeValidator != null) {
@@ -58,26 +62,18 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
 
   Future<void> refreshData({bool forceReload = false}) async {
     final currentFetchToken = ++_fetchToken;
-
     _isLoading = true; errorMessage = null; notifyListeners();
     try {
       final rawData = await fetchFunction(forceReload: forceReload);
-
-      if (_fetchToken != currentFetchToken) return; // 🚀 الإجهاض عند تغير الأب
+      if (_fetchToken != currentFetchToken) return;
 
       final safeNewData = List<T>.from(rawData);
 
       DropdownRange<T>? syncWithNewList(DropdownRange<T>? currentRange) {
         if (currentRange == null) return null;
         T? f = currentRange.fromValue; T? t = currentRange.toValue;
-
-        // 🚀 الاكتفاء بالتحديث دون تلويث الكاش (بدون insert)
-        if (f != null) {
-          if (safeNewData.contains(f)) f = safeNewData.firstWhere((e) => e == f);
-        }
-        if (t != null) {
-          if (safeNewData.contains(t)) t = safeNewData.firstWhere((e) => e == t);
-        }
+        if (f != null && safeNewData.contains(f)) f = safeNewData.firstWhere((e) => e == f);
+        if (t != null && safeNewData.contains(t)) t = safeNewData.firstWhere((e) => e == t);
         return DropdownRange<T>(fromValue: f, toValue: t);
       }
 
@@ -89,7 +85,7 @@ class GenericDropdownRangeController<T> extends BaseFilterController<DropdownRan
   }
 
   Future<void> ensureDataLoaded() async {
-    if (_items.isNotEmpty || _isLoading) return; // 🚀 إزالة حاجز الـ errorMessage
+    if (_items.isNotEmpty || _isLoading) return;
     await refreshData(forceReload: false);
   }
 }
