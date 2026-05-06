@@ -1,42 +1,87 @@
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/date_picker/generic_date_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/date_picker/generic_date_style.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/date_picker_range/generic_date_range_controller.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/data_range.dart';
+// لا تنسَ استيراد ملف GenericDateStyle
 
+// ==========================================
+// 1. Widget التاريخ الفردي
+// ==========================================
 class GenericDateWidget extends StatelessWidget {
   final GenericDateController controller;
   final String labelText;
   final String hintText;
   final DateTime? firstDate;
   final DateTime? lastDate;
+  final GenericDateStyle? style;
 
-  const GenericDateWidget({super.key, required this.controller, required this.labelText, this.hintText = "اختر التاريخ...", this.firstDate, this.lastDate});
+  // 🚀 البنّاء المخصص للقوة المطلقة
+  final Widget Function(BuildContext context, DateTime? selectedDate, GenericDateController controller)? customBuilder;
+
+  const GenericDateWidget({
+    super.key,
+    required this.controller,
+    required this.labelText,
+    this.hintText = "Select Date",
+    this.firstDate,
+    this.lastDate,
+    this.style,
+    this.customBuilder,
+  });
 
   Future<void> _pickDate(BuildContext context) async {
-    final picked = await showDatePicker(context: context, initialDate: controller.tempValue ?? DateTime.now(), firstDate: firstDate ?? DateTime(2000), lastDate: lastDate ?? DateTime(2100));
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: controller.tempValue ?? DateTime.now(),
+      firstDate: firstDate ?? DateTime(2000),
+      lastDate: lastDate ?? DateTime(2100),
+    );
     if (picked != null) controller.updateTemp(picked);
   }
 
   @override
   Widget build(BuildContext context) {
+    final appliedStyle = (style ?? const GenericDateStyle()).mergeWithDefault(context);
+
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
         if (controller.isVisible != null && !controller.isVisible!()) return const SizedBox.shrink();
         final temp = controller.tempValue;
+
+        if (customBuilder != null) return customBuilder!(context, temp, controller);
+
+        Widget? suffixActions;
+        if (temp != null) {
+          suffixActions = IconButton(
+            icon: Icon(Icons.close_rounded, color: Theme.of(context).colorScheme.error, size: 20),
+            onPressed: () => controller.clear(),
+            splashRadius: 20,
+          );
+        }
+
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          padding: appliedStyle.padding!,
           child: InputDecorator(
-            decoration: InputDecoration(
-              labelText: labelText, border: const OutlineInputBorder(), errorText: controller.validationError,
-              suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
-                if (temp != null) IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => controller.clear()),
-                const Icon(Icons.calendar_month, color: Colors.blue, size: 20), const SizedBox(width: 8),
-              ]),
+            decoration: appliedStyle.decoration!.copyWith(
+              labelText: labelText,
+              errorText: controller.validationError,
+              suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (suffixActions != null) suffixActions,
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: appliedStyle.calendarIcon!),
+                  ]
+              ),
             ),
             child: InkWell(
               onTap: () => _pickDate(context),
-              child: Text(temp != null ? "${temp.year}-${temp.month.toString().padLeft(2,'0')}-${temp.day.toString().padLeft(2,'0')}" : hintText, style: TextStyle(fontWeight: temp != null ? FontWeight.bold : FontWeight.normal)),
+              borderRadius: BorderRadius.circular(4),
+              child: Text(
+                temp != null ? appliedStyle.dateFormatter!(temp) : hintText,
+                style: temp != null ? appliedStyle.textStyle : appliedStyle.hintStyle,
+              ),
             ),
           ),
         );
@@ -45,6 +90,9 @@ class GenericDateWidget extends StatelessWidget {
   }
 }
 
+// ==========================================
+// 2. Widget نطاق التاريخ (مُحسّن UXياً)
+// ==========================================
 class GenericDateRangeWidget extends StatelessWidget {
   final GenericDateRangeController controller;
   final String labelText;
@@ -52,34 +100,94 @@ class GenericDateRangeWidget extends StatelessWidget {
   final String toLabelText;
   final DateTime? firstDate;
   final DateTime? lastDate;
+  final GenericDateStyle? style;
 
-  const GenericDateRangeWidget({super.key, required this.controller, required this.labelText, this.fromLabelText = "من", this.toLabelText = "إلى", this.firstDate, this.lastDate});
+  final Widget Function(BuildContext context, DateRange? selectedRange, GenericDateRangeController controller)? customBuilder;
 
-  Future<void> _pickDate(BuildContext context, {required bool isFrom}) async {
-    final now = DateTime.now();
-    final picked = await showDatePicker(context: context, initialDate: isFrom ? (controller.tempValue?.fromDate ?? now) : (controller.tempValue?.toDate ?? now), firstDate: firstDate ?? DateTime(2000), lastDate: lastDate ?? DateTime(2100));
-    if (picked != null) {
-      final current = controller.tempValue ?? DateRange(fromDate: picked, toDate: picked);
-      controller.updateTemp(DateRange(fromDate: isFrom ? picked : current.fromDate, toDate: !isFrom ? picked : current.toDate));
+  const GenericDateRangeWidget({
+    super.key,
+    required this.controller,
+    required this.labelText,
+    this.fromLabelText = "From",
+    this.toLabelText = "To",
+    this.firstDate,
+    this.lastDate,
+    this.style,
+    this.customBuilder,
+  });
+
+  // 🚀 إصلاح الـ UX: استخدام DateRangePicker الحقيقي بدلاً من تقويمين!
+  Future<void> _pickDateRange(BuildContext context) async {
+    final temp = controller.tempValue;
+    final pickedRange = await showDateRangePicker(
+      context: context,
+      initialDateRange: temp != null ? DateTimeRange(start: temp.fromDate, end: temp.toDate) : null,
+      firstDate: firstDate ?? DateTime(2000),
+      lastDate: lastDate ?? DateTime(2100),
+      builder: (context, child) {
+        // دعم اللغة العربية والاتجاهات
+        return Directionality(textDirection: Directionality.of(context), child: child!);
+      },
+    );
+
+    if (pickedRange != null) {
+      // 🚀 أمان منطقي: التطبيق يضمن أن fromDate دائمًا قبل toDate
+      controller.updateTemp(DateRange(fromDate: pickedRange.start, toDate: pickedRange.end));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final appliedStyle = (style ?? const GenericDateStyle()).mergeWithDefault(context);
+
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
         if (controller.isVisible != null && !controller.isVisible!()) return const SizedBox.shrink();
+
+        final temp = controller.tempValue;
+        if (customBuilder != null) return customBuilder!(context, temp, controller);
+
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          padding: appliedStyle.padding!,
           child: InputDecorator(
-            decoration: InputDecoration(labelText: labelText, border: const OutlineInputBorder(), errorText: controller.validationError, suffixIcon: controller.tempValue != null ? IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => controller.clear()) : null),
-            child: Row(
-              children: [
-                Expanded(child: InkWell(onTap: () => _pickDate(context, isFrom: true), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [Text(fromLabelText, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)), Text(controller.tempValue?.fromDate.toString().split(' ')[0] ?? "---", style: const TextStyle(fontWeight: FontWeight.bold))]))),
-                Container(width: 1, height: 30, color: Colors.grey.shade300), const SizedBox(width: 8),
-                Expanded(child: InkWell(onTap: () => _pickDate(context, isFrom: false), child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [Text(toLabelText, style: TextStyle(fontSize: 11, color: Colors.grey.shade600)), Text(controller.tempValue?.toDate.toString().split(' ')[0] ?? "---", style: const TextStyle(fontWeight: FontWeight.bold))]))),
-              ],
+            decoration: appliedStyle.decoration!.copyWith(
+              labelText: labelText,
+              errorText: controller.validationError,
+              suffixIcon: temp != null
+                  ? IconButton(icon: Icon(Icons.close_rounded, color: Theme.of(context).colorScheme.error, size: 20), onPressed: () => controller.clear())
+                  : null,
+            ),
+            child: InkWell(
+              onTap: () => _pickDateRange(context),
+              borderRadius: BorderRadius.circular(4),
+              child: Row(
+                children: [
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(fromLabelText, style: appliedStyle.labelStyle),
+                            Text(temp != null ? appliedStyle.dateFormatter!(temp.fromDate) : "---", style: appliedStyle.textStyle)
+                          ]
+                      )
+                  ),
+                  Container(width: 1, height: 30, color: Theme.of(context).dividerColor),
+                  const SizedBox(width: 12),
+                  Expanded(
+                      child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(toLabelText, style: appliedStyle.labelStyle),
+                            Text(temp != null ? appliedStyle.dateFormatter!(temp.toDate) : "---", style: appliedStyle.textStyle)
+                          ]
+                      )
+                  ),
+                  appliedStyle.calendarIcon!,
+                ],
+              ),
             ),
           ),
         );
