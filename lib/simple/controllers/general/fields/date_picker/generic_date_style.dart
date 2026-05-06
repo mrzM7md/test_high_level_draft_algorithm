@@ -7,7 +7,7 @@ class GenericDateStyle {
   final InputDecoration? decoration;
   final EdgeInsetsGeometry? padding;
   final Widget? calendarIcon;
-  // 🚀 السحر هنا: دالة لتنسيق التاريخ ديناميكياً
+  // 🚀 دالة لتنسيق التاريخ ديناميكياً بدلاً من split العشوائي
   final String Function(DateTime)? dateFormatter;
 
   const GenericDateStyle({
@@ -28,7 +28,7 @@ class GenericDateStyle {
       labelStyle: labelStyle ?? theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
       padding: padding ?? const EdgeInsets.symmetric(vertical: 8.0),
       calendarIcon: calendarIcon ?? Icon(Icons.calendar_month_rounded, color: theme.colorScheme.primary, size: 22),
-      // التنسيق الافتراضي الآمن إذا لم يمرر المبرمج شيئاً
+      // التنسيق الافتراضي الآمن
       dateFormatter: dateFormatter ?? (date) => "${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}",
       decoration: decoration ?? const InputDecoration(
         border: OutlineInputBorder(),
