@@ -2,16 +2,19 @@ import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_fil
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/filter_fetch_exception.dart';
 import 'package:test_high_level_draft_algorithm/helpers/debouncer_helper.dart';
 
-class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T>> {
+class GenericMultiOfflineSearchController<T>
+    extends BaseFilterController<List<T>> {
   final Future<List<T>> Function({bool forceReload}) fetchAllFunction;
   final bool Function(T item, String query) localFilterFunction;
 
   List<T> _items = [];
+
   List<T> get items => _items;
 
   List<T> searchResults = [];
 
   bool _isLoading = false;
+
   bool get isLoading => _isLoading;
 
   bool isSearching = false;
@@ -33,9 +36,18 @@ class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T
 
   @override
   bool validate() {
-    if (isVisible != null && !isVisible!()) { validationError = null; return true; }
-    if (isRequired && (tempValue == null || tempValue!.isEmpty)) { validationError = "هذا الحقل مطلوب ولا يمكن تركه فارغاً"; notifyListeners(); return false; }
-    validationError = null; notifyListeners(); return true;
+    if (isVisible != null && !isVisible!()) {
+      validationError = null;
+      return true;
+    }
+    if (isRequired && (tempValue == null || tempValue!.isEmpty)) {
+      validationError = "هذا الحقل مطلوب ولا يمكن تركه فارغاً";
+      notifyListeners();
+      return false;
+    }
+    validationError = null;
+    notifyListeners();
+    return true;
   }
 
   Future<void> ensureDataLoaded() async {
@@ -45,14 +57,19 @@ class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T
 
   @override
   void onParentValueChanged() {
-    _items = []; searchResults = []; tempValue = []; super.onParentValueChanged();
+    _items = [];
+    searchResults = [];
+    tempValue = [];
+    super.onParentValueChanged();
     if (isVisible == null || isVisible!()) refreshData(forceReload: false);
   }
 
   Future<void> refreshData({bool forceReload = false}) async {
     final currentFetchToken = ++_fetchToken;
 
-    _isLoading = true; errorMessage = null; notifyListeners();
+    _isLoading = true;
+    errorMessage = null;
+    notifyListeners();
     try {
       final rawData = await fetchAllFunction(forceReload: forceReload);
       if (_fetchToken != currentFetchToken) return;
@@ -71,13 +88,22 @@ class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T
         }
         return synced;
       }
-      tempValue = syncList(tempValue); appliedValue = syncList(appliedValue);
+
+      tempValue = syncList(tempValue);
+      appliedValue = syncList(appliedValue);
       _items = safeNewData;
 
       if (!isSearching && !_debouncer.isTimerActive) {
         searchResults = List.from(_items);
       }
-    } on FilterFetchException catch (e) { errorMessage = e.message; } catch (e) { errorMessage = "فشل تحميل البيانات."; } finally { _isLoading = false; notifyListeners(); }
+    } on FilterFetchException catch (e) {
+      errorMessage = e.message;
+    } catch (e) {
+      errorMessage = "فشل تحميل البيانات.";
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   void onSearchQueryChanged(String query) {
@@ -98,7 +124,9 @@ class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T
 
       try {
         final lowerQuery = query.toLowerCase().trim();
-        final results = items.where((item) => localFilterFunction(item, lowerQuery)).toList();
+        final results = items
+            .where((item) => localFilterFunction(item, lowerQuery))
+            .toList();
 
         if (_searchToken == currentToken) {
           searchResults = results;
@@ -114,10 +142,26 @@ class GenericMultiOfflineSearchController<T> extends BaseFilterController<List<T
     });
   }
 
-  void resetSearch() { searchResults = List.from(_items); isSearching = false; notifyListeners(); }
+  void resetSearch() {
+    searchResults = List.from(_items);
+    isSearching = false;
+    notifyListeners();
+  }
 
-  void toggleItem(T item) { final currentList = List<T>.from(tempValue ?? []); if (currentList.contains(item)) currentList.remove(item); else currentList.add(item); updateTemp(currentList.isEmpty ? null : currentList); }
-  void removeItem(T item) { final currentList = List<T>.from(tempValue ?? []); currentList.remove(item); updateTemp(currentList.isEmpty ? null : currentList); }
+  void toggleItem(T item) {
+    final currentList = List<T>.from(tempValue ?? []);
+    if (currentList.contains(item))
+      currentList.remove(item);
+    else
+      currentList.add(item);
+    updateTemp(currentList.isEmpty ? null : currentList);
+  }
+
+  void removeItem(T item) {
+    final currentList = List<T>.from(tempValue ?? []);
+    currentList.remove(item);
+    updateTemp(currentList.isEmpty ? null : currentList);
+  }
 
   @override
   void dispose() {
