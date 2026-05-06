@@ -7,24 +7,45 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
 
   List<T> searchResults = [];
   bool isSearching = false;
-  final DebouncerHelper _debouncer = DebouncerHelper(milliseconds: 500);
-
+  late final DebouncerHelper _debouncer;
   int _searchToken = 0;
 
-  GenericSearchController({required this.initialFetchFunction, required this.searchFunction, super.defaultValue, super.dependencies, super.isVisible, super.isRequired});
+  GenericSearchController({
+    required this.initialFetchFunction,
+    required this.searchFunction,
+    int debounceMilliseconds = 500, // 🚀 قابلة للتخصيص لإنقاذ السيرفرات البطيئة
+    super.defaultValue,
+    super.dependencies,
+    super.isVisible,
+    super.isRequired,
+  }) {
+    _debouncer = DebouncerHelper(milliseconds: debounceMilliseconds);
+  }
 
-  @override Future<List<T>> fetchDataFromServer({bool forceReload = false}) => initialFetchFunction(forceReload: forceReload);
+  @override
+  Future<List<T>> fetchDataFromServer({bool forceReload = false}) =>
+      initialFetchFunction(forceReload: forceReload);
 
-  @override void onParentValueChanged() { searchResults = []; super.onParentValueChanged(); }
+  @override
+  void onParentValueChanged() {
+    searchResults = [];
+    super.onParentValueChanged();
+  }
 
   void onSearchQueryChanged(String query) {
     _debouncer.cancel();
-    if (query.trim().isEmpty) { searchResults = List.from(items); isSearching = false; notifyListeners(); return; }
+    if (query.trim().isEmpty) {
+      searchResults = List.from(items);
+      isSearching = false;
+      notifyListeners();
+      return;
+    }
 
     final currentToken = ++_searchToken;
 
     _debouncer.run(() async {
-      isSearching = true; notifyListeners();
+      isSearching = true;
+      notifyListeners();
       try {
         final results = await searchFunction(query);
         if (_searchToken == currentToken) {
@@ -43,17 +64,23 @@ class GenericSearchController<T> extends BaseDataFilterController<T> {
     });
   }
 
-  void resetSearchState() { searchResults = List.from(items); isSearching = false; notifyListeners(); }
-  @override void dispose() { _debouncer.cancel(); super.dispose(); }
+  void resetSearchState() {
+    searchResults = List.from(items);
+    isSearching = false;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _debouncer.cancel();
+    super.dispose();
+  }
 
   @override
   Future<void> refreshData({bool forceReload = false}) async {
     await super.refreshData(forceReload: forceReload);
-    // 🚀 السحر هنا: بعد انتهاء الأب من الجلب، نقوم بمزامنة نتائج البحث الافتراضية
     if (!isSearching && !_debouncer.isTimerActive) {
       searchResults = List.from(items);
-      // نستدعي التحديث فقط إذا كنا قد تأكدنا أن الكنترولر لم يمت
-      // (notifyListeners الموجودة في الأب محمية تلقائياً)
       notifyListeners();
     }
   }

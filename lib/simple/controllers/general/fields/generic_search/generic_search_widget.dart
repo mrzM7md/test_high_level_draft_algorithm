@@ -1,42 +1,126 @@
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search/generic_search_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/generic_search/generic_search_style.dart';
+// لا تنس استيراد GenericSearchStyle
 
-class GenericSearchWidget<T> extends StatelessWidget {
+class GenericSearchWidget<T> extends StatefulWidget {
   final GenericSearchController<T> controller;
   final String labelText;
   final String hintText;
-  final Widget Function(T item, bool isSelected) itemBuilder;
-  final String Function(T item) selectedItemLabel;
+  final GenericSearchStyle? style;
   final bool showReloadButton;
 
-  const GenericSearchWidget({super.key, required this.controller, required this.labelText, required this.hintText, required this.itemBuilder, required this.selectedItemLabel, this.showReloadButton = true});
+  // 🌍 نصوص الترجمة والديناميكية
+  final String searchHintText;
+  final String noResultsText;
 
-  void _openSearchSheet(BuildContext context) {
-    controller.resetSearchState();
+  // 🚀 البنائين الديناميكية
+  final Widget Function(T item, bool isSelected) itemBuilder; // لصفحة البحث
+  final String Function(T item)? selectedItemLabel; // النص العادي المختار
+
+  // 🚀 التحرر المطلق: ارسم ما تشاء للعنصر المختار (صورة، بطاقة، إلخ)
+  final Widget Function(BuildContext context, T selectedItem)?
+  customSelectedBuilder;
+  final WidgetBuilder? emptyStateBuilder;
+  final WidgetBuilder? loadingStateBuilder;
+
+  const GenericSearchWidget({
+    super.key,
+    required this.controller,
+    required this.labelText,
+    required this.itemBuilder,
+    this.hintText = "اختر...",
+    this.searchHintText = "بحث...",
+    this.noResultsText = "لا توجد نتائج.",
+    this.showReloadButton = true,
+    this.selectedItemLabel,
+    this.customSelectedBuilder,
+    this.emptyStateBuilder,
+    this.loadingStateBuilder,
+    this.style,
+  }) : assert(
+         selectedItemLabel != null || customSelectedBuilder != null,
+         'يجب توفير selectedItemLabel أو customSelectedBuilder لعرض العنصر المختار!',
+       );
+
+  @override
+  State<GenericSearchWidget<T>> createState() => _GenericSearchWidgetState<T>();
+}
+
+class _GenericSearchWidgetState<T> extends State<GenericSearchWidget<T>> {
+  @override
+  void initState() {
+    super.initState();
+    // 🛡️ درع السيرفر: يتم طلب البيانات الأولية مرة واحدة فقط عند التهيئة!
+    widget.controller.ensureDataLoaded();
+  }
+
+  void _openSearchSheet(BuildContext context, GenericSearchStyle appliedStyle) {
+    widget.controller.resetSearchState();
     showModalBottomSheet(
-      context: context, isScrollControlled: true,
+      context: context,
+      isScrollControlled: true,
+      shape: appliedStyle.bottomSheetShape,
       builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(top: 20, left: 16, right: 16, bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+        padding: EdgeInsets.only(
+          top: 24,
+          left: 16,
+          right: 16,
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
+        ),
         child: SizedBox(
-          height: MediaQuery.of(sheetContext).size.height * 0.7,
+          height:
+              MediaQuery.of(sheetContext).size.height *
+              appliedStyle.bottomSheetHeightRatio!,
           child: Column(
             children: [
-              TextField(decoration: const InputDecoration(labelText: "بحث...", prefixIcon: Icon(Icons.search), border: OutlineInputBorder()), onChanged: controller.onSearchQueryChanged),
-              const SizedBox(height: 10),
+              Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                margin: EdgeInsetsGeometry.only(bottom: 16),
+              ),
+              TextField(
+                decoration: appliedStyle.searchFieldDecoration!.copyWith(
+                  labelText: widget.searchHintText,
+                ),
+                onChanged: widget.controller.onSearchQueryChanged,
+                autofocus: true,
+              ),
+              const SizedBox(height: 12),
               Expanded(
                 child: ListenableBuilder(
-                  listenable: controller,
+                  listenable: widget.controller,
                   builder: (context, _) {
-                    if (controller.isSearching) return const Center(child: CircularProgressIndicator());
-                    if (controller.searchResults.isEmpty) return const Center(child: Text("لا توجد نتائج."));
+                    if (widget.controller.isSearching) {
+                      return widget.loadingStateBuilder != null
+                          ? widget.loadingStateBuilder!(context)
+                          : const Center(child: CircularProgressIndicator());
+                    }
+                    if (widget.controller.searchResults.isEmpty) {
+                      return widget.emptyStateBuilder != null
+                          ? widget.emptyStateBuilder!(context)
+                          : Center(
+                              child: Text(
+                                widget.noResultsText,
+                                style: appliedStyle.hintStyle,
+                              ),
+                            );
+                    }
                     return ListView.builder(
-                      itemCount: controller.searchResults.length,
+                      itemCount: widget.controller.searchResults.length,
                       itemBuilder: (context, index) {
-                        final item = controller.searchResults[index];
-                        final isSelected = item == controller.tempValue;
+                        final item = widget.controller.searchResults[index];
+                        final isSelected = item == widget.controller.tempValue;
                         return InkWell(
-                          onTap: () { controller.updateTemp(item); Navigator.pop(sheetContext); },
-                          child: itemBuilder(item, isSelected),
+                          onTap: () {
+                            widget.controller.updateTemp(item);
+                            Navigator.pop(sheetContext);
+                          },
+                          child: widget.itemBuilder(item, isSelected),
                         );
                       },
                     );
@@ -52,25 +136,78 @@ class GenericSearchWidget<T> extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    controller.ensureDataLoaded();
+    final appliedStyle = (widget.style ?? const GenericSearchStyle())
+        .mergeWithDefault(context);
+    final theme = Theme.of(context);
+
     return ListenableBuilder(
-      listenable: controller,
+      listenable: widget.controller,
       builder: (context, _) {
-        if (controller.isVisible != null && !controller.isVisible!()) return const SizedBox.shrink();
+        if (widget.controller.isVisible != null &&
+            !widget.controller.isVisible!())
+          return const SizedBox.shrink();
+
+        final temp = widget.controller.tempValue;
+
+        // ذكاء الأيقونات
+        Widget? smartSuffixIcon;
+        if (widget.controller.isLoading) {
+          smartSuffixIcon = const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.0),
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        } else if (widget.controller.errorMessage != null &&
+            widget.showReloadButton) {
+          smartSuffixIcon = IconButton(
+            icon: Icon(Icons.refresh_rounded, color: theme.colorScheme.error),
+            onPressed: () => widget.controller.refreshData(forceReload: true),
+            splashRadius: 20,
+          );
+        } else if (temp != null) {
+          smartSuffixIcon = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: Icon(
+                  Icons.close_rounded,
+                  color: theme.colorScheme.error,
+                  size: 20,
+                ),
+                onPressed: () => widget.controller.clear(),
+                splashRadius: 20,
+              ),
+            ],
+          );
+        } else {
+          smartSuffixIcon = appliedStyle.trailingIcon;
+        }
+
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          padding: appliedStyle.padding!,
           child: InputDecorator(
-            decoration: InputDecoration(
-              labelText: labelText, border: const OutlineInputBorder(), errorText: controller.errorMessage ?? controller.validationError,
-              suffixIcon: Row(mainAxisSize: MainAxisSize.min, children: [
-                if (controller.isLoading) const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-                if (showReloadButton && !controller.isLoading) IconButton(icon: const Icon(Icons.refresh, color: Colors.blue, size: 20), onPressed: () => controller.refreshData(forceReload: true)),
-                if (controller.tempValue != null) IconButton(icon: const Icon(Icons.close, color: Colors.red, size: 20), onPressed: () => controller.clear()),
-              ]),
+            decoration: appliedStyle.decoration!.copyWith(
+              labelText: widget.labelText,
+              errorText:
+                  widget.controller.errorMessage ??
+                  widget.controller.validationError,
+              suffixIcon: smartSuffixIcon,
             ),
             child: InkWell(
-              onTap: () => _openSearchSheet(context),
-              child: Text(controller.tempValue != null ? selectedItemLabel(controller.tempValue as T) : hintText, style: TextStyle(fontWeight: controller.tempValue != null ? FontWeight.bold : FontWeight.normal)),
+              onTap: () => _openSearchSheet(context, appliedStyle),
+              borderRadius: BorderRadius.circular(4),
+              child: temp != null
+                  // 🚀 الهروب من سجن النصوص!
+                  ? (widget.customSelectedBuilder != null
+                        ? widget.customSelectedBuilder!(context, temp)
+                        : Text(
+                            widget.selectedItemLabel!(temp),
+                            style: appliedStyle.textStyle,
+                          ))
+                  : Text(widget.hintText, style: appliedStyle.hintStyle),
             ),
           ),
         );
