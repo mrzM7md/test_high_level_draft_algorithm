@@ -7,9 +7,11 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
   final Future<List<T>> Function(String query) searchFunction;
 
   List<T> _items = [];
+
   List<T> get items => _items;
   List<T> searchResults = [];
   bool _isLoading = false;
+
   bool get isLoading => _isLoading;
   bool isSearching = false;
   String? errorMessage;
@@ -21,15 +23,28 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
   int _fetchToken = 0;
 
   GenericMultiSearchController({
-    required this.initialFetchFunction, required this.searchFunction,
-    super.defaultValue, super.dependencies, super.isVisible, super.isRequired,
+    required this.initialFetchFunction,
+    required this.searchFunction,
+    super.defaultValue,
+    super.dependencies,
+    super.isVisible,
+    super.isRequired,
   });
 
   @override
   bool validate() {
-    if (isVisible != null && !isVisible!()) { validationError = null; return true; }
-    if (isRequired && (tempValue == null || tempValue!.isEmpty)) { validationError = "هذا الحقل مطلوب"; notifyListeners(); return false; }
-    validationError = null; notifyListeners(); return true;
+    if (isVisible != null && !isVisible!()) {
+      validationError = null;
+      return true;
+    }
+    if (isRequired && (tempValue == null || tempValue!.isEmpty)) {
+      validationError = "هذا الحقل مطلوب";
+      notifyListeners();
+      return false;
+    }
+    validationError = null;
+    notifyListeners();
+    return true;
   }
 
   Future<void> ensureDataLoaded() async {
@@ -39,14 +54,19 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
 
   @override
   void onParentValueChanged() {
-    _items = []; searchResults = []; tempValue = []; super.onParentValueChanged();
+    _items = [];
+    searchResults = [];
+    tempValue = [];
+    super.onParentValueChanged();
     if (isVisible == null || isVisible!()) refreshData(forceReload: false);
   }
 
   Future<void> refreshData({bool forceReload = false}) async {
     final currentFetchToken = ++_fetchToken; // 🚀 توكن الجلب
 
-    _isLoading = true; errorMessage = null; notifyListeners();
+    _isLoading = true;
+    errorMessage = null;
+    notifyListeners();
     try {
       final rawData = await initialFetchFunction(forceReload: forceReload);
 
@@ -76,7 +96,6 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
       if (!isSearching && !_debouncer.isTimerActive) {
         searchResults = List.from(_items);
       }
-
     } on FilterFetchException catch (e) {
       errorMessage = e.message;
     } catch (e) {
@@ -101,7 +120,8 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
     final currentToken = ++_searchToken;
 
     _debouncer.run(() async {
-      isSearching = true; notifyListeners();
+      isSearching = true;
+      notifyListeners();
       try {
         final results = await searchFunction(query);
         if (_searchToken == currentToken) {
@@ -125,8 +145,21 @@ class GenericMultiSearchController<T> extends BaseFilterController<List<T>> {
     notifyListeners();
   }
 
-  void toggleItem(T item) { final currentList = List<T>.from(tempValue ?? []); if (currentList.contains(item)) currentList.remove(item); else currentList.add(item); updateTemp(currentList.isEmpty ? null : currentList); }
-  void removeItem(T item) { final currentList = List<T>.from(tempValue ?? []); currentList.remove(item); updateTemp(currentList.isEmpty ? null : currentList); }
+  void toggleItem(T item) {
+    final currentList = List<T>.from(tempValue ?? []);
+    if (currentList.contains(item)) {
+      currentList.remove(item);
+    } else {
+      currentList.add(item);
+    }
+    updateTemp(currentList.isEmpty ? null : currentList);
+  }
+
+  void removeItem(T item) {
+    final currentList = List<T>.from(tempValue ?? []);
+    currentList.remove(item);
+    updateTemp(currentList.isEmpty ? null : currentList);
+  }
 
   @override
   void dispose() {
