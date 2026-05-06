@@ -1,6 +1,3 @@
-// generic_dropdown_controller.dart
-
-import 'package:flutter/cupertino.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_data_filter_controller.dart';
 
 class GenericDropdownController<T> extends BaseDataFilterController<T> {

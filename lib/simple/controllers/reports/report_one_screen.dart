@@ -67,11 +67,6 @@ class _ReportOneScreenState extends State<ReportOneScreen> {
             controller: widget.strategy.categoryFilter,
             labelText: "اختر التصنيف",
             itemLabelBuilder: (cat) => cat.name,
-            decoration: InputDecoration(
-              labelText: "اختر التصنيف",
-              filled: true, fillColor: Colors.grey.shade50,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-            ),
           ),
 
           GenericDropdownRangeWidget<CategoryModel>(

@@ -1,79 +1,110 @@
-// generic_dropdown_widget.dart
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/dropdown/generic_dropdown_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/fields/dropdown/generic_dropdown_style.dart';
 
-
-class GenericDropdownWidget<T> extends StatelessWidget {
+class GenericDropdownWidget<T> extends StatefulWidget {
   final GenericDropdownController<T> controller;
+  final String labelText;
+  final String hintText;
+  final GenericDropdownStyle? style;
 
-  final String Function(T item) itemLabelBuilder;
+  // 🚀 ترقية: السماح ببناء واجهة مخصصة لكل عنصر (صورة، نصين، الخ)
+  final Widget Function(BuildContext context, T item)? itemBuilder;
+  // مسار بديل وسريع لمن لا يريد بناء واجهة معقدة
+  final String Function(T item)? itemLabelBuilder;
 
-  final String? labelText;
-  final InputDecoration? decoration;
-  final bool showReloadButton;
-  final Widget? customLoadingIndicator;
-  final Icon? customReloadIcon;
-  final Icon? customClearIcon;
+  // 🚀 البنّاء الخارق (Ultimate Builder) للتحكم الكامل
+  final Widget Function(BuildContext context, T? selectedItem, GenericDropdownController<T> controller)? customBuilder;
 
   const GenericDropdownWidget({
     super.key,
     required this.controller,
-    required this.itemLabelBuilder,
-    this.labelText,
-    this.decoration,
-    this.showReloadButton = true,
-    this.customLoadingIndicator,
-    this.customReloadIcon,
-    this.customClearIcon,
-  });
+    required this.labelText,
+    this.hintText = "اختر من القائمة...",
+    this.itemBuilder,
+    this.itemLabelBuilder,
+    this.style,
+    this.customBuilder,
+  }) : assert(itemBuilder != null || itemLabelBuilder != null || customBuilder != null,
+  'يجب تمرير itemBuilder أو itemLabelBuilder على الأقل لمعرفة كيف سيتم رسم العناصر');
+
+  @override
+  State<GenericDropdownWidget<T>> createState() => _GenericDropdownWidgetState<T>();
+}
+
+class _GenericDropdownWidgetState<T> extends State<GenericDropdownWidget<T>> {
+  @override
+  void initState() {
+    super.initState();
+    // 🚀 السحر المعماري 1: نقل التحميل إلى التهيئة لإنقاذ الـ Event Loop!
+    widget.controller.ensureDataLoaded();
+  }
 
   @override
   Widget build(BuildContext context) {
-    // التأكد من جلب البيانات عند بناء الواجهة[cite: 16]
-    controller.ensureDataLoaded();
+    final appliedStyle = (widget.style ?? const GenericDropdownStyle()).mergeWithDefault(context);
+    final theme = Theme.of(context);
 
     return ListenableBuilder(
-      listenable: controller,
+      listenable: widget.controller,
       builder: (context, _) {
-        // إدارة الظهور والاختفاء (isVisible) تتم هنا في الواجهة!
-        if (controller.isVisible != null && !controller.isVisible!()) {
+        if (widget.controller.isVisible != null && !widget.controller.isVisible!()) {
           return const SizedBox.shrink();
         }
 
+        final temp = widget.controller.tempValue;
+
+        // 🚀 السحر 2: هل استخدم المبرمج البنّاء الخارق؟
+        if (widget.customBuilder != null) {
+          return widget.customBuilder!(context, temp, widget.controller);
+        }
+
+        // بناء الأيقونات الذكية في الطرف
+        Widget? smartSuffixIcon;
+        if (widget.controller.isLoading) {
+          smartSuffixIcon = const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12.0),
+            child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+          );
+        } else if (widget.controller.errorMessage != null && widget.controller.showReloadButton) {
+          smartSuffixIcon = IconButton(
+            icon: Icon(Icons.refresh_rounded, color: theme.colorScheme.error),
+            onPressed: () => widget.controller.refreshData(forceReload: true),
+            splashRadius: 20,
+          );
+        } else if (temp != null) {
+          smartSuffixIcon = IconButton(
+            icon: Icon(Icons.close_rounded, color: theme.colorScheme.error, size: 20),
+            onPressed: () => widget.controller.clear(),
+            splashRadius: 20,
+          );
+        }
+
+        // أمان للـ Dropdown: إذا كانت القيمة غير موجودة باللستة، نمرر null لمنع الانهيار
+        final safeValue = widget.controller.items.contains(temp) ? temp : null;
+
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          padding: appliedStyle.padding!,
           child: DropdownButtonFormField<T>(
-            // استخدام تصميم المستخدم إذا وُجد، أو التصميم الافتراضي
-            decoration: decoration ?? InputDecoration(
-              labelText: labelText,
-              border: const OutlineInputBorder(),
-              errorText: controller.errorMessage ?? controller.validationError,
-              suffixIcon: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (controller.isLoading)
-                    customLoadingIndicator ?? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
-
-                  if (showReloadButton)
-                    IconButton(
-                        icon: customReloadIcon ?? const Icon(Icons.refresh, color: Colors.blue, size: 20),
-                        onPressed: () => controller.refreshData(forceReload: true)
-                    ),
-
-                  if (controller.tempValue != null)
-                    IconButton(
-                        icon: customClearIcon ?? const Icon(Icons.close, color: Colors.red, size: 20),
-                        onPressed: () => controller.clear()
-                    ),
-                ],
-              ),
+            decoration: appliedStyle.decoration!.copyWith(
+              labelText: widget.labelText,
+              errorText: widget.controller.errorMessage ?? widget.controller.validationError,
+              suffixIcon: smartSuffixIcon,
             ),
-            value: controller.items.contains(controller.tempValue) ? controller.tempValue : null,
-            items: controller.items.map((item) => DropdownMenuItem(
+            icon: smartSuffixIcon != null ? const SizedBox.shrink() : appliedStyle.defaultDropdownIcon,
+            menuMaxHeight: appliedStyle.menuMaxHeight,
+            hint: Text(widget.hintText, style: appliedStyle.hintStyle),
+            isExpanded: true,
+            value: safeValue,
+            items: widget.controller.items.map((item) {
+              return DropdownMenuItem<T>(
                 value: item,
-                child: Text(itemLabelBuilder(item))
-            )).toList(),
-            onChanged: (val) => controller.updateTemp(val), // تحديث القيمة في الكنترولر[cite: 16]
+                child: widget.itemBuilder != null
+                    ? widget.itemBuilder!(context, item)
+                    : Text(widget.itemLabelBuilder!(item), style: appliedStyle.textStyle),
+              );
+            }).toList(),
+            onChanged: (val) => widget.controller.updateTemp(val),
           ),
         );
       },
