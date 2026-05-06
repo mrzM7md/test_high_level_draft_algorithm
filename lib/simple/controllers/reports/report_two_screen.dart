@@ -58,7 +58,6 @@ class _ReportTwoScreenState extends State<ReportTwoScreen> {
           FilterGroupWidget(
             controller: widget.strategy.advancedSettingsGroup,
             isExpandable: true,
-            headerColor: Colors.indigo,
             childrenWidgets: [
               GenericDropdownRangeWidget<CategoryModel>(
                 controller: widget.strategy.subCategoryRangeFilter,

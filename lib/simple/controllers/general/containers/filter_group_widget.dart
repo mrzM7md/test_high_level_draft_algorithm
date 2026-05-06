@@ -1,80 +1,95 @@
 import 'package:flutter/material.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/containers/filter_group_controller.dart';
-// import 'filter_group_controller.dart';
+import 'package:test_high_level_draft_algorithm/simple/controllers/general/containers/filter_group_style.dart';
+// لا تنس استيراد FilterGroupStyle
 
 class FilterGroupWidget extends StatelessWidget {
   final FilterGroupController controller;
-
-  // 🔥 هنا نستقبل الواجهات المرسومة للأبناء من الشاشة!
   final List<Widget> childrenWidgets;
-
-  // تخصيص الواجهة
   final bool isExpandable;
-  final Color? headerColor;
+  final FilterGroupStyle? style;
+
+  // 🚀 البنّاء الخارق لتوزيع الحقول (Grid, Wrap, Column...)
+  final Widget Function(BuildContext context, List<Widget> children)?
+  customLayoutBuilder;
 
   const FilterGroupWidget({
     super.key,
     required this.controller,
     required this.childrenWidgets,
     this.isExpandable = true,
-    this.headerColor = Colors.blue,
+    this.style,
+    this.customLayoutBuilder,
   });
 
   @override
   Widget build(BuildContext context) {
+    final appliedStyle = (style ?? const FilterGroupStyle()).mergeWithDefault(
+      context,
+    );
+
     return ListenableBuilder(
       listenable: controller,
       builder: (context, _) {
-        // التحقق من الإظهار والاخفاء
         if (controller.isVisible != null && !controller.isVisible!()) {
           return const SizedBox.shrink();
         }
 
         final title = controller.titleBuilder?.call() ?? "مجموعة فلاتر";
 
-        // بناء عامود الأبناء
-        Widget childrenColumn = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: childrenWidgets,
-        );
+        // 🚀 الحرية المطلقة: إذا وفر المبرمج تخطيطاً نستخدمه، وإلا نستخدم العمود الافتراضي
+        final Widget layoutContent = customLayoutBuilder != null
+            ? customLayoutBuilder!(context, childrenWidgets)
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: childrenWidgets,
+              );
 
-        // رسم الواجهة بناءً على اختيار المبرمج
         if (isExpandable) {
           return Card(
-            elevation: 1,
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-                side: BorderSide(color: Colors.grey.shade200)
-            ),
-            child: ExpansionTile(
-              title: Text(
-                title,
-                style: TextStyle(fontWeight: FontWeight.bold, color: headerColor, fontSize: 15),
+            elevation: 0,
+            // نعتمد على الحدود (Border) لتصميم عصري مسطح (Flat Design)
+            color: appliedStyle.backgroundColor,
+            margin: appliedStyle.margin,
+            shape: appliedStyle.shape,
+            child: Theme(
+              // إزالة خط التقسيم القبيح الافتراضي في ExpansionTile
+              data: Theme.of(
+                context,
+              ).copyWith(dividerColor: Colors.transparent),
+              child: ExpansionTile(
+                title: Text(title, style: appliedStyle.titleTextStyle),
+                initiallyExpanded: true,
+                maintainState: true,
+                // 🛡️ حماية حالة الأبناء (Focus & Temporary values) من التدمير عند الطي
+                childrenPadding: appliedStyle.childrenPadding,
+                iconColor: appliedStyle.headerColor,
+                collapsedIconColor: appliedStyle.headerColor,
+                children: [layoutContent],
               ),
-              initiallyExpanded: true,
-              childrenPadding: const EdgeInsets.only(left: 12, right: 12, bottom: 12),
-              children: [childrenColumn],
             ),
           );
         } else {
           return Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
-            padding: const EdgeInsets.all(12),
+            margin: appliedStyle.margin,
+            padding: appliedStyle.childrenPadding,
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-              color: Colors.grey.shade50,
+              border: Border.all(color: appliedStyle.borderColor!),
+              borderRadius:
+                  (appliedStyle.shape as RoundedRectangleBorder?)
+                      ?.borderRadius ??
+                  BorderRadius.circular(8),
+              color: appliedStyle.backgroundColor,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  title,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: headerColor),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Text(title, style: appliedStyle.titleTextStyle),
                 ),
-                const Divider(),
-                childrenColumn,
+                Divider(color: appliedStyle.borderColor),
+                layoutContent,
               ],
             ),
           );
