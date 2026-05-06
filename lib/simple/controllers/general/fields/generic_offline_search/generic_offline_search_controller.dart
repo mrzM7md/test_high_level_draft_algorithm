@@ -6,26 +6,32 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
   final bool Function(T item, String query) localFilterFunction;
 
   List<T> searchResults = [];
-
   bool isSearching = false;
-  final DebouncerHelper _debouncer = DebouncerHelper(milliseconds: 300); // 300ms كافية جداً للمحلي
+  late final DebouncerHelper _debouncer;
   int _searchToken = 0;
 
   GenericOfflineSearchController({
     required this.fetchAllFunction,
     required this.localFilterFunction,
+    int debounceMilliseconds = 300, // 🚀 قابل للتخصيص
     super.defaultSelectionBuilder,
     super.defaultValue,
     super.dependencies,
     super.isVisible,
     super.isRequired,
-  });
+  }) {
+    _debouncer = DebouncerHelper(milliseconds: debounceMilliseconds);
+  }
 
   @override
-  Future<List<T>> fetchDataFromServer({bool forceReload = false}) => fetchAllFunction(forceReload: forceReload);
+  Future<List<T>> fetchDataFromServer({bool forceReload = false}) =>
+      fetchAllFunction(forceReload: forceReload);
 
   @override
-  void onParentValueChanged() { searchResults = []; super.onParentValueChanged(); }
+  void onParentValueChanged() {
+    searchResults = [];
+    super.onParentValueChanged();
+  }
 
   void onSearchQueryChanged(String query) {
     _debouncer.cancel();
@@ -42,16 +48,12 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
     _debouncer.run(() async {
       isSearching = true;
       notifyListeners();
-
       try {
         final lowerQuery = query.toLowerCase().trim();
-
-        // 🚀 الحل: فلترة مباشرة وسريعة بدون استخدام Isolates لتجنب الانهيار
-        final results = items.where((item) => localFilterFunction(item, lowerQuery)).toList();
-
-        if (_searchToken == currentToken) {
-          searchResults = results;
-        }
+        final results = items
+            .where((item) => localFilterFunction(item, lowerQuery))
+            .toList();
+        if (_searchToken == currentToken) searchResults = results;
       } catch (e) {
         if (_searchToken == currentToken) searchResults = [];
       } finally {
@@ -62,19 +64,24 @@ class GenericOfflineSearchController<T> extends BaseDataFilterController<T> {
       }
     });
   }
-  void resetSearch() { searchResults = List.from(items); isSearching = false; notifyListeners(); }
+
+  void resetSearch() {
+    searchResults = List.from(items);
+    isSearching = false;
+    notifyListeners();
+  }
 
   @override
-  void dispose() { _debouncer.cancel(); super.dispose(); }
+  void dispose() {
+    _debouncer.cancel();
+    super.dispose();
+  }
 
   @override
   Future<void> refreshData({bool forceReload = false}) async {
     await super.refreshData(forceReload: forceReload);
-    // 🚀 السحر هنا: بعد انتهاء الأب من الجلب، نقوم بمزامنة نتائج البحث الافتراضية
     if (!isSearching && !_debouncer.isTimerActive) {
       searchResults = List.from(items);
-      // نستدعي التحديث فقط إذا كنا قد تأكدنا أن الكنترولر لم يمت
-      // (notifyListeners الموجودة في الأب محمية تلقائياً)
       notifyListeners();
     }
   }
