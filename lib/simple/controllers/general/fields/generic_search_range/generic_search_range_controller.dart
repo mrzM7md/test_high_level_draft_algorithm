@@ -3,7 +3,8 @@ import 'package:test_high_level_draft_algorithm/simple/controllers/base/base_fil
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/dropdown_range.dart';
 import 'package:test_high_level_draft_algorithm/simple/controllers/general/models/filter_fetch_exception.dart';
 
-class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange<T>> {
+class GenericSearchRangeController<T>
+    extends BaseFilterController<DropdownRange<T>> {
   final Future<List<T>> Function({bool forceReload}) initialFetchFunction;
   final Future<List<T>> Function(String query) searchFunction;
 
@@ -11,35 +12,54 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
   final String? customRangeErrorMessage;
 
   List<T> _items = [];
+
   List<T> get items => _items;
   List<T> searchResults = [];
   bool _isLoading = false;
+
   bool get isLoading => _isLoading;
   bool isSearching = false;
   String? errorMessage;
 
-  final DebouncerHelper _debouncer = DebouncerHelper(milliseconds: 500);
+  late final DebouncerHelper _debouncer;
   int _searchToken = 0;
-
   int _fetchToken = 0;
 
   GenericSearchRangeController({
-    required this.initialFetchFunction, required this.searchFunction,
-    this.customRangeValidator, this.customRangeErrorMessage,
-    super.defaultValue, super.dependencies, super.isVisible, super.isRequired,
-  });
+    required this.initialFetchFunction,
+    required this.searchFunction,
+    int debounceMilliseconds = 500, // 🚀 تخصيص السرعة لحماية السيرفر!
+    this.customRangeValidator,
+    this.customRangeErrorMessage,
+    super.defaultValue,
+    super.dependencies,
+    super.isVisible,
+    super.isRequired,
+  }) {
+    _debouncer = DebouncerHelper(milliseconds: debounceMilliseconds);
+  }
 
   @override
   bool validate() {
-    if (isVisible != null && !isVisible!()) { validationError = null; return true; }
+    if (isVisible != null && !isVisible!()) {
+      validationError = null;
+      return true;
+    }
 
     final fromVal = tempValue?.fromValue;
     final toVal = tempValue?.toValue;
 
-    if (isRequired && fromVal == null && toVal == null) {
-      validationError = "يجب اختيار عنصر واحد على الأقل";
+    if (isRequired && (fromVal == null || toVal == null)) {
+      validationError = "هذا الحقل مطلوب بالكامل ولا يمكن تركه فارغاً";
       notifyListeners();
       return false;
+    }
+
+    // 🚀 الحماية المطلقة: تجاوز دالة التحقق المخصصة إذا كان الحقل فارغاً واختيارياً
+    if (!isRequired && fromVal == null && toVal == null) {
+      validationError = null;
+      notifyListeners();
+      return true;
     }
 
     if (customRangeValidator != null) {
@@ -57,12 +77,18 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
 
   void onSearchQueryChanged(String query) {
     _debouncer.cancel();
-    if (query.trim().isEmpty) { searchResults = List.from(_items); isSearching = false; notifyListeners(); return; }
+    if (query.trim().isEmpty) {
+      searchResults = List.from(_items);
+      isSearching = false;
+      notifyListeners();
+      return;
+    }
 
     final currentToken = ++_searchToken;
 
     _debouncer.run(() async {
-      isSearching = true; notifyListeners();
+      isSearching = true;
+      notifyListeners();
       try {
         final results = await searchFunction(query);
         if (_searchToken == currentToken) {
@@ -81,18 +107,27 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
     });
   }
 
-  void resetSearch() { searchResults = List.from(_items); isSearching = false; notifyListeners(); }
+  void resetSearch() {
+    searchResults = List.from(_items);
+    isSearching = false;
+    notifyListeners();
+  }
 
   @override
   void onParentValueChanged() {
-    _items = []; searchResults = []; tempValue = null; super.onParentValueChanged();
+    _items = [];
+    searchResults = [];
+    tempValue = null;
+    super.onParentValueChanged();
     if (isVisible == null || isVisible!()) refreshData(forceReload: false);
   }
 
   Future<void> refreshData({bool forceReload = false}) async {
     final currentFetchToken = ++_fetchToken;
 
-    _isLoading = true; errorMessage = null; notifyListeners();
+    _isLoading = true;
+    errorMessage = null;
+    notifyListeners();
     try {
       final rawData = await initialFetchFunction(forceReload: forceReload);
       if (_fetchToken != currentFetchToken) return;
@@ -101,16 +136,13 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
 
       DropdownRange<T>? syncRange(DropdownRange<T>? currentRange) {
         if (currentRange == null) return null;
-        T? f = currentRange.fromValue; T? t = currentRange.toValue;
+        T? f = currentRange.fromValue;
+        T? t = currentRange.toValue;
 
-        if (f != null) {
-          if (safeNewData.contains(f)) f = safeNewData.firstWhere((e) => e == f);
-          // 🚀 تم حذف عملية الإدراج
-        }
-        if (t != null) {
-          if (safeNewData.contains(t)) t = safeNewData.firstWhere((e) => e == t);
-          // 🚀 تم حذف عملية الإدراج
-        }
+        if (f != null && safeNewData.contains(f))
+          f = safeNewData.firstWhere((e) => e == f);
+        if (t != null && safeNewData.contains(t))
+          t = safeNewData.firstWhere((e) => e == t);
         return DropdownRange<T>(fromValue: f, toValue: t);
       }
 
@@ -122,7 +154,14 @@ class GenericSearchRangeController<T> extends BaseFilterController<DropdownRange
       if (!isSearching && !_debouncer.isTimerActive) {
         searchResults = List.from(_items);
       }
-    } on FilterFetchException catch (e) { errorMessage = e.message; } catch (e) { errorMessage = "فشل التحميل."; } finally { _isLoading = false; notifyListeners(); }
+    } on FilterFetchException catch (e) {
+      errorMessage = e.message;
+    } catch (e) {
+      errorMessage = "فشل التحميل.";
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> ensureDataLoaded() async {
